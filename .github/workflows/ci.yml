@@ -35,3 +35,6 @@ jobs:
       - name: Reliability benchmark v0.6
         if: matrix.python-version == '3.11'
         run: python examples/benchmark_reliability_v06.py
+      - name: Calibrated incremental reliability v0.7
+        if: matrix.python-version == '3.11'
+        run: python examples/benchmark_calibrated_reliability_v07.py
