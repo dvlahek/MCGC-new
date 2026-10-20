@@ -7,4 +7,4 @@ __all__ = [
     "explain_mcgc",
     "explain_contrastive_mcgc",
 ]
-__version__ = "0.4.0"
+__version__ = "0.5.0"
