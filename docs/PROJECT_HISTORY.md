@@ -1,34 +1,37 @@
 # MCGC project history and scientific decision log
 
-This is the canonical running history for the MCGC project. It records code checkpoints, frozen protocols, tests, positive and negative results, and the scientific decisions that followed from them. Update it whenever a new frozen version is completed.
-
-Repository: `dvlahek/MCGC-new`
+This is the canonical running history for `dvlahek/MCGC-new`. It records frozen code checkpoints, tests, positive and negative results, and the scientific decisions that followed. Update it after every completed frozen version.
 
 Working name: **Multi-Agent Chemotactic Graph Classifier (MCGC)**.
 
-Core idea: labelled samples form a k-nearest-neighbour graph with class-specific contrastive evidence fields. Class-conditioned walkers traverse those fields. Classification, intrinsic XAI and reliability/selective prediction are treated as separate scientific questions.
+Core separation used throughout the project:
 
-## Current scientific position
+1. **classification** — whether walker/path information improves class prediction;
+2. **XAI** — whether the fitted decision can be traced through exact components, supporting samples and graph paths;
+3. **reliability/selective prediction** — whether intrinsic graph quantities rank likely errors and support abstention.
+
+## Current scientific position after v1.2
 
 The strongest supported story is not universal raw-accuracy superiority.
 
-The two main positive contributions are now:
+Two empirically distinct contributions currently survive frozen confirmation:
 
-1. **v0.9 XAI faithfulness** — for queries with a nontrivial representative path, deleting path-selected training nodes and refitting changes the fitted class margin more than deleting matched off-path controls or an equal number of nearest off-path training examples.
-2. **v1.0–v1.1 selective confidence on nonlinear manifolds** — the frozen local graph-field margin gives better excess selective-risk ranking than distance-weighted kNN confidence and, in aggregate over the frozen manifold family, also better ranking than fixed RBF-SVM margin confidence and fixed Random-Forest probability confidence.
+1. **Intrinsic path faithfulness (v0.9).** For queries with nontrivial representative paths, deleting path-selected training nodes and refitting changes the fitted class margin more than deleting matched off-path controls or equal-size nearest-neighbour controls.
+2. **Selective confidence on nonlinear manifolds (v1.0–v1.2).** The frozen MCGC local graph-field margin provides lower excess selective risk than tuned kNN confidence and tuned Random-Forest confidence on the frozen moons/circles/spirals family. Tuned RBF-SVM is competitive overall and removes the fixed-SVM aggregate advantage seen in v1.1.
 
-Closed negative results remain part of the project story:
+Important closed negative results remain part of the contribution boundary:
 
-- the original single-split spiral walker-accuracy gain did not survive multi-seed confirmation;
-- uncertainty-gated walker scoring did not repair that failure;
+- walker trajectory terms did not provide a stable raw-accuracy improvement;
+- ambiguity gating did not repair that failure;
 - trail disagreement did not add held-out reliability information beyond local margin;
-- a five-feature combined intrinsic reliability model failed broader confirmation.
+- the five-feature combined intrinsic reliability model failed broader confirmation;
+- MCGC is not universally better than tuned nonlinear baselines or conventional tabular models.
 
 Current defensible positioning:
 
-> MCGC is an intrinsically traceable graph classifier whose class-conditioned representative paths identify functionally decision-relevant training samples, while its graph-field margin provides improved selective-risk ranking on the frozen nonlinear-manifold benchmark relative to several conventional confidence baselines.
+> MCGC is an intrinsically traceable graph classifier whose representative paths identify functionally decision-relevant training samples, while its local graph-field margin provides improved selective-risk ranking relative to tuned kNN and tuned Random-Forest confidence on a frozen nonlinear-manifold benchmark.
 
-Do not expand this into universal accuracy, uncertainty, interpretability or SOTA claims without new evidence.
+Do not expand this into universal accuracy, uncertainty, interpretability, causal or SOTA claims without new evidence.
 
 ---
 
@@ -36,144 +39,89 @@ Do not expand this into universal accuracy, uncertainty, interpretability or SOT
 
 ## v0.1 — first reproducible prototype
 
-### Goal
+Goal: implement the scent/chemotaxis-inspired graph classifier as a sklearn-compatible research prototype.
 
-Implement the original dog/scent-inspired classifier as a minimal sklearn-compatible prototype.
-
-### Main implementation
+Core implementation:
 
 - `src/mcgc/classifier.py`
-- `MultiAgentChemotacticGraphClassifier`
-- graph construction, class fields, stochastic walkers and initial scoring
-- `examples/benchmark_synthetic.py`
-- `tests/test_classifier.py`
-- initial CI
+- k-NN graph and locally scaled edge weights
+- class-specific evidence fields
+- stochastic class-conditioned walkers
+- initial score aggregation
 
 Important early commits:
 
-- `ac8e838501aff1eada17aa853a932d7d83af9e6e` — initialize prototype
-- `88588e6203558a3a74ac83ef87c53ff7a338847b` — complete early v0.1 repository checkpoint
+- `ac8e838501aff1eada17aa853a932d7d83af9e6e`
+- `88588e6203558a3a74ac83ef87c53ff7a338847b`
 
-### Failure that changed the design
+Important design correction: naive uphill-walker scoring could let a wrong-class walker beat a query already inside a strong correct-class basin. Local contrastive evidence therefore became the score anchor and walkers became refinements.
 
-The naive score rewarded uphill walker movement so strongly that a wrong-class walker could beat a query already located in a strong correct-class basin.
-
-The fix made **local contrastive evidence the anchor**, with walker terms only refining it.
-
-Post-fix smoke results:
+Smoke results after the correction:
 
 - circles: kNN `0.9933`, MCGC `0.9933`
 - moons: kNN `0.9667`, MCGC `0.9600`
 
-These were smoke tests only.
-
-### Decision
-
-Biological plausibility is not enough. Every walker-specific mechanism must demonstrate measurable value beyond the graph field.
+Decision: no performance claim from smoke tests.
 
 ---
 
-## v0.2 — walker-stage ablation
+## v0.2 — controlled walker ablation
 
-### Goal
+Goal: isolate graph-field prediction from trajectory contribution.
 
-Separate graph-field prediction from trajectory contribution.
-
-### Added controls
-
-- `use_walkers`
-- `local_evidence_weight`
-- `trail_score_weight`
-- `agreement_weight`
-- `lost_fraction_weight`
-
-Compared:
-
-- uniform kNN
-- distance-weighted kNN
-- Label Spreading
-- `field_only`
-- `one_walker`
-- `multi_no_gradient`
-- `mcgc_no_reliability`
-- `mcgc_full`
+Added ablation controls for walker use and score weights. Compared uniform/distance kNN, Label Spreading, field-only, one-walker, no-gradient and full MCGC variants.
 
 Important commits:
 
-- `970d75ba989081245ece010f8743557363a6e5fc` — ablation benchmark
-- `b48e6d94d1edab8a0e68281c3d09f48be5055c69` — run ablation in CI
-- `69444556cda0e8c9ad7f09bc0664cb8dbd7e4a7a` — document results
+- `970d75ba989081245ece010f8743557363a6e5fc`
+- `b48e6d94d1edab8a0e68281c3d09f48be5055c69`
+- `69444556cda0e8c9ad7f09bc0664cb8dbd7e4a7a`
 
-Single-split diagnostic accuracy:
+Single-split spiral diagnostic suggested `field_only 0.7556 -> full 0.7722`, but distance kNN and Label Spreading were both `0.8111`.
 
-| Dataset | field | one walker | no gradient | full | distance kNN | Label Spreading |
-|---|---:|---:|---:|---:|---:|---:|
-| moons | 0.9833 | 0.9889 | 0.9833 | 0.9833 | 0.9778 | 0.9778 |
-| circles | 0.9889 | 0.9889 | 0.9889 | 0.9889 | 0.9889 | 0.9889 |
-| spirals | 0.7556 | 0.7611 | 0.7667 | 0.7722 | 0.8111 | 0.8111 |
+Tests/CI: six tests passed at this stage on Python 3.10, 3.11 and 3.12.
 
-CI passed on Python 3.10, 3.11 and 3.12 with six tests at this stage.
-
-### Decision
-
-The apparent spiral walker gain was exploratory only and required independent multi-seed confirmation.
+Decision: treat the apparent spiral gain as exploratory until multi-seed confirmation.
 
 ---
 
 ## v0.3 — XAI-first layer
 
-### Goal
+Goal: expose faithful explanation objects without changing prediction.
 
-Expose faithful explanation objects without changing v0.2 prediction.
-
-### Added
+Added:
 
 - `src/mcgc/xai.py`
-- `explain_mcgc(model, X)`
+- `explain_mcgc()`
 - deterministic representative trails
 - supporting training examples
 - exact additive class-score decomposition
 
 Important commits:
 
-- `3315a1527edf84a9dc5ea79d0c1580cee8baac22` — faithful XAI layer
-- `229cdea59bf8bc45e0d491d375c2a2c7ec9c3801` — deterministic XAI tests
-- `55db66d83b15f3e39b37837b0df127ecc47501f6` — v0.3 checkpoint
+- `3315a1527edf84a9dc5ea79d0c1580cee8baac22`
+- `229cdea59bf8bc45e0d491d375c2a2c7ec9c3801`
+- `55db66d83b15f3e39b37837b0df127ecc47501f6`
 
-### Fidelity invariant
+Tests verify prediction identity, exact score reconstruction and deterministic representative-path reproducibility. CI passed on Python 3.10–3.12.
 
-Each returned class score must numerically equal the sum of its local, trail, agreement and lost-trail components. The explanation fails rather than silently returning a non-faithful decomposition.
-
-Tests covered prediction identity, exact score reconstruction and deterministic representative paths. CI passed on Python 3.10–3.12.
-
-### Decision
-
-Representative trails are traces through the fitted evidence landscape. They are not described as the sole causal path behind a stochastic multi-agent aggregate.
+Decision: representative trails are traces through the fitted evidence landscape, not sole causal paths for stochastic scoring.
 
 ---
 
-## v0.4 — multi-seed accuracy confirmation
+## v0.4 — frozen multi-seed accuracy confirmation
 
-### Goal
-
-Test whether the v0.2 walker signal survives 12 frozen seeds without retuning.
-
-Protocol:
-
-- seeds `0..11`
-- circles, moons, two-arm spirals
-- fixed hyperparameters
-- `field_only`, `multi_no_gradient`, `mcgc_full`, distance-weighted kNN
+Goal: test the v0.2 walker signal over 12 frozen seeds with no retuning.
 
 Important commits:
 
-- `d03ad16a5f8de0be7a8a44ba089efab868df3b4f` — benchmark
-- `443916f2f5a079e11bf7818206f3a11256877e7f` — CI integration
-- `f611dc65fbcb5da5ffa052fc9b8c31692b4790e6` — result documentation
+- `d03ad16a5f8de0be7a8a44ba089efab868df3b4f`
+- `443916f2f5a079e11bf7818206f3a11256877e7f`
+- `f611dc65fbcb5da5ffa052fc9b8c31692b4790e6`
 
-Full MCGC minus field-only:
+Full-minus-field-only accuracy:
 
-| Dataset | mean delta | W/T/L |
+| dataset | mean delta | W/T/L |
 |---|---:|---:|
 | circles | +0.00056 | 1/11/0 |
 | moons | -0.00056 | 0/11/1 |
@@ -181,147 +129,95 @@ Full MCGC minus field-only:
 
 On spirals, full MCGC lost to distance-weighted kNN on all 12 seeds with mean accuracy delta `-0.0950`.
 
-### Conclusion
+Conclusion: **walker raw-accuracy gain not confirmed**. Explicit gradient contribution was also essentially null.
 
-**Walker raw-accuracy gain not confirmed.** Explicit gradient gain was also essentially null.
-
-Contrastive `why A rather than B` decomposition was added around this stage and reconstructs the requested class-score difference exactly.
+Around this stage, exact contrastive `why A rather than B` decomposition was added.
 
 ---
 
 ## v0.5 — ambiguity-gated walkers
 
-### Goal
+Goal: downweight walker corrections when local evidence is already decisive.
 
-Downweight walker corrections when local graph-field evidence is already decisive.
-
-Gate:
-
-`g(q) = exp(-(m(q) / m_ref) ** p)` with `p=1`.
+Gate: `g(q)=exp(-(m(q)/m_ref)^p)` with frozen `p=1`.
 
 Important commits:
 
-- `a15177a65f5c8b22dc460b90ba8e14f87d783948` — uncertainty-gated walkers
-- `332b990c07382cb3a081d0bd96b41792be213696` — XAI under gating
-- `d0c4ffec38780b617bdf4f0876a11297efcb7add` — gate tests
-- `b102185206fb49202783042d64987e13d87c35f7` — confirmation benchmark
+- `a15177a65f5c8b22dc460b90ba8e14f87d783948`
+- `332b990c07382cb3a081d0bd96b41792be213696`
+- `d0c4ffec38780b617bdf4f0876a11297efcb7add`
+- `b102185206fb49202783042d64987e13d87c35f7`
 
-The gate was active but did not change aggregate predictions relative to unconditional walkers in any of the 36 dataset-seed runs.
+The gate was numerically active but changed no aggregate predictions in the 36 dataset×seed runs.
 
-Mean gates:
+Tests: 16 passing tests at the frozen checkpoint.
 
-- circles `0.3836`
-- moons `0.4092`
-- spirals `0.5348`
-
-v0.5 passed 16 tests.
-
-### Conclusion
-
-The gate is reproducible and explainable but is not an accuracy fix. Development moved from forcing trajectory terms into prediction toward testing them as reliability information.
+Conclusion: gating is reproducible and explainable but not an accuracy fix.
 
 ---
 
 ## v0.6 — intrinsic reliability
 
-### Goal
-
-Test whether internal graph/trail quantities rank MCGC errors without changing prediction or fitting a secondary risk model.
+Goal: test whether internal graph/trail signals identify model errors without fitting a secondary risk model.
 
 Added `src/mcgc/reliability.py`.
 
 Important commits:
 
-- `49e8bb2409bea329f031d758a72886f272a2732e` — reliability API
-- `9d9657c2bd789a25cf02fd5b2353221c18f91307` — benchmark
-- `a5d51ab68da77151ecef21990770eb15fcbe08f3` — frozen protocol
-- `a6dd12d8fa0b55f1a36aa2f611f4d4671dd35e2f` — results
+- `49e8bb2409bea329f031d758a72886f272a2732e`
+- `9d9657c2bd789a25cf02fd5b2353221c18f91307`
+- `a5d51ab68da77151ecef21990770eb15fcbe08f3`
+- `a6dd12d8fa0b55f1a36aa2f611f4d4671dd35e2f`
 
 Error-detection AUC:
 
-| Dataset | errors | local margin | final margin | trail disagreement |
-|---|---:|---:|---:|---:|
-| circles | 6 | 0.9929 | 0.9931 | 0.9936 |
-| moons | 42 | **0.9197** | 0.9153 | 0.8847 |
-| spirals | 505 | **0.7375** | 0.7257 | 0.6083 |
+| dataset | local margin | final margin | trail disagreement |
+|---|---:|---:|---:|
+| circles | 0.9929 | 0.9931 | 0.9936 |
+| moons | **0.9197** | 0.9153 | 0.8847 |
+| spirals | **0.7375** | 0.7257 | 0.6083 |
 
-On spirals, local-margin selective filtering raised retained-set accuracy from `0.7194` at full coverage to `0.8711` at 50% coverage.
+On spirals, local-margin filtering raises retained accuracy from `0.7194` at 100% coverage to `0.8711` at 50% coverage.
 
-### Conclusion
-
-The **local graph-field margin** is the strongest supported intrinsic reliability signal. Trail disagreement is descriptive but weaker. Lost-trail fraction is essentially uninformative.
+Conclusion: local graph-field margin is the strongest supported intrinsic reliability signal.
 
 ---
 
 ## v0.7 — calibrated incremental reliability
 
-### Goal
+Goal: test whether walker disagreement adds reliability information beyond local margin using a strict 60/20/20 train/calibration/test split.
 
-Test whether trail disagreement adds held-out reliability information after controlling for local margin.
-
-Frozen 60/20/20 train/calibration/test split. Frozen risk models:
-
-- `local_only`
-- `local_plus_final`
-- `local_plus_trail_disagreement`
-- `combined_intrinsic`
-
-Working confirmation checkpoint:
+Key checkpoint:
 
 - `a7e7b869b27d27191644bff7b40a5fb5d836c53c`
 
-Dedicated confirmation passed 19 tests before the science run.
+Tests: 19/19 passed before the dedicated frozen benchmark.
 
-Primary contrast `local + trail disagreement` minus `local only`:
+Primary `local + trail disagreement` minus `local only` AUC:
 
-- moons delta `-0.0213`, W/T/L `1/4/5`
-- spirals delta `-0.00340`, W/L `3/9`
+- moons: `-0.0213`, W/T/L `1/4/5`
+- spirals: `-0.00340`, W/L `3/9`
 
-Secondary combined-intrinsic spiral signal:
+Secondary combined-intrinsic spiral signal: `+0.007872`, W/L `8/4`, but negative on moons.
 
-- local AUC `0.73298`
-- combined AUC `0.74085`
-- delta `+0.007872`
-- W/L `8/4`
-
-but the same combined model was negative on moons.
-
-### Conclusion
-
-**Primary v0.7 hypothesis rejected.** The combined spiral signal remained exploratory and was carried forward unchanged to v0.8 for independent confirmation.
+Conclusion: **primary v0.7 hypothesis rejected**. The secondary combined signal was carried forward unchanged to v0.8.
 
 ---
 
 ## v0.8 — frozen combined-intrinsic confirmation
 
-### Goal
+Goal: confirm the exact five-feature v0.7 combined model on a broader suite without feature search or retuning.
 
-Confirm the exact five-feature v0.7 combined model on a broader suite with no feature search or retuning.
+Frozen features: local margin, final margin, trail disagreement, coherence, lost-trail risk.
 
-Features:
+Datasets: moons_hard, circles_hard, spirals_hard, overlap_hd, breast_cancer, wine, digits_0_4.
 
-- local margin
-- final margin
-- trail disagreement
-- coherence
-- lost-trail risk
+Important commits:
 
-Datasets:
+- `788ef00d2a242c69d569bd2dabd893d83e09148a` — Windows/self-contained import fix
+- `f7a8be5d3f94b743c7ffe85eb8f4c323992a5812` — frozen result
 
-- moons_hard
-- circles_hard
-- spirals_hard
-- overlap_hd
-- breast_cancer
-- wine
-- digits_0_4
-
-Important checkpoints:
-
-- `788ef00d2a242c69d569bd2dabd893d83e09148a` — self-contained Windows-compatible benchmark fix
-- `f7a8be5d3f94b743c7ffe85eb8f4c323992a5812` — frozen negative result
-
-After the Windows import fix, the suite reached 22 passing tests before the full confirmation.
+Tests: 22 passed before full confirmation.
 
 Across 53 evaluable paired runs:
 
@@ -331,266 +227,213 @@ Across 53 evaluable paired runs:
 
 Every dataset had a negative mean paired delta.
 
-### Conclusion
-
-**Combined path-derived reliability did not replicate.** This is a closed negative checkpoint. Main emphasis moved to XAI faithfulness while local margin remained the reliability signal.
+Conclusion: **combined path-derived reliability did not replicate**. Closed negative checkpoint.
 
 ---
 
 ## v0.9 — frozen XAI faithfulness
 
-### Goal
+Goal: test whether representative-path nodes are functionally linked to the fitted decision.
 
-Test whether representative-path nodes are functionally linked to the fitted decision.
+Delete-and-refit intervention compares path-node removal against:
 
-### Delete-and-refit intervention
-
-For each eligible query:
-
-1. fit MCGC;
-2. obtain representative path;
-3. delete path nodes;
-4. refit the same model;
-5. measure original winner-vs-runner margin drop;
-6. compare with equal-size controls.
-
-Controls:
-
-- label-and-distance-matched off-path nodes
-- equal number of nearest off-path nodes
+- label-and-distance-matched off-path controls
+- equal-size nearest off-path controls
 
 Important commits:
 
-- `9aebb3e51dd40a5b08c9fca1796449befa5b3672` — implementation checkpoint
+- `9aebb3e51dd40a5b08c9fca1796449befa5b3672` — implementation
 - `133c2810295822e75ee62d2ccae92fc3b71ab76f` — result documentation
 
 Datasets: moons_hard, spirals_hard, overlap_hd, breast_cancer. Five seeds, at most 12 eligible queries per seed.
 
 Across 240 eligible queries:
 
-Primary path-vs-matched advantage:
+- path-vs-matched mean advantage `+0.0926154467`, median `+0.0625828114`, W/T/L `202/0/38`
+- path-vs-nearest mean advantage `+0.3593250906`, median `+0.3049531662`, W/T/L `207/0/33`
 
-- mean `+0.0926154467`
-- median `+0.0625828114`
-- W/T/L `202/0/38`
+Reviewer-resistant dataset×seed aggregation:
 
-Path-vs-nearest advantage:
+- `20/20` units positive for matched-control advantage
+- `20/20` units positive for nearest-control advantage
+- sign-test p approximately `1.91e-06`
 
-- mean `+0.3593250906`
-- median `+0.3049531662`
-- W/T/L `207/0/33`
+Contrastive reconstruction remains exact to floating-point precision.
 
-At the more reviewer-resistant dataset×seed level, all **20/20 units** had positive mean primary advantage and all 20/20 had positive path-vs-nearest advantage. Two-sided sign-test p is approximately `1.91e-06`.
+Limitation: only queries with nontrivial representative paths are eligible.
 
-Contrastive margin reconstruction remained exact to floating-point precision.
-
-### Limitation
-
-Not every query admits a nontrivial representative path. The claim applies only to eligible queries.
-
-### Conclusion
-
-**First strong positive MCGC result.**
-
-Supported wording:
-
-> For queries admitting a nontrivial representative path, MCGC identifies training examples whose removal changes the fitted class margin more strongly than matched off-path controls and equal-size nearest-neighbour explanations.
+Conclusion: **first strong positive MCGC result**.
 
 ---
 
 ## v1.0 — frozen selective-manifold benchmark
 
-### Goal
+Goal: test local-margin risk against standard confidence baselines on a predefined nonlinear-manifold family.
 
-Test local graph-field margin against standard confidence baselines specifically on nonlinear manifolds.
-
-Primary family:
-
-- moons_hard
-- circles_hard
-- spirals_hard
-
-Controls:
-
-- overlap_hd
-- breast_cancer
-
-Twelve seeds, 70/30 train/test split. Primary metric: E-AURC.
-
-Baselines:
-
-- distance-weighted 12-NN confidence
-- standardized logistic confidence
+Primary datasets: moons_hard, circles_hard, spirals_hard. Controls: overlap_hd, breast_cancer. Twelve seeds, 70/30 train/test. Primary metric: E-AURC.
 
 Important commits:
 
-- `2517852cafb65a61f69ba211157023dd1b2e48a4` — implementation/protocol checkpoint
-- `34ceef3e829f819613b9487673a9b2f30aa5a8e1` — positive result documentation
+- `2517852cafb65a61f69ba211157023dd1b2e48a4`
+- `34ceef3e829f819613b9487673a9b2f30aa5a8e1`
 
-Against weighted kNN over 36 primary runs:
+Against distance-weighted kNN across 36 primary runs:
 
-E-AURC advantage `kNN - MCGC`:
-
-- mean `+0.009157069986134773`
-- median `+0.006353876329219648`
+- mean E-AURC advantage `+0.00915707`
+- median `+0.00635388`
 - W/T/L `29/0/7`
-- p `0.00031255115754902363`
+- p `0.00031255`
 
-Ordinary AURC advantage:
+Ordinary AURC: mean advantage `+0.00812553`, W/T/L `25/0/11`, p `0.02882`.
 
-- mean `+0.008125534126382374`
-- W/T/L `25/0/11`
-- p `0.028816719655878842`
-
-Per-dataset E-AURC MCGC / kNN:
-
-- moons `0.018809 / 0.026451`, W/L `11/1`
-- circles `0.017257 / 0.023252`, W/L `9/3`
-- spirals `0.192063 / 0.205898`, W/L `9/3`
-
-This is a selective-risk result, not universal raw-accuracy superiority.
-
-### Conclusion
-
-**Second strong positive MCGC result.**
+Conclusion: **second strong positive result** — improved selective-risk ranking versus weighted kNN on the frozen manifold family.
 
 ---
 
-## v1.1 — stronger nonlinear selective baselines
+## v1.1 — stronger fixed nonlinear baselines
+
+Goal: stress-test v1.0 against fixed RBF-SVM and Random Forest without changing MCGC.
+
+Protocol commit:
+
+- `cc2dbe6c3cc4457662e175ad9e7308fc917be074`
+
+Implementation/test head before local science run:
+
+- `2060cce38d7f6e3b102847f445917e36f96d8bec`
+
+Result documentation:
+
+- `2e534c6083f7d6ec490c8ae1a3a7be55b566b04b`
+
+Primary 36-run E-AURC advantages:
+
+- vs weighted kNN: `+0.009157`, W/T/L `29/0/7`
+- vs fixed RBF-SVM: `+0.014414`, W/T/L `25/0/11`, p `0.028817`
+- vs fixed Random Forest: `+0.010919`, W/T/L `31/0/5`, p `1.29e-05`
+
+Important boundary: fixed RBF-SVM beats MCGC on circles. Conventional control datasets also limit the claim.
+
+Conclusion: v1.1 positive, but reviewer-grade validation requires tuned baselines.
+
+---
+
+## v1.2 — nested tuned-baseline confirmation
 
 ### Goal
 
-Stress-test the frozen v1.0 MCGC local-margin confidence against stronger nonlinear baselines without retuning MCGC.
+Keep MCGC completely frozen while giving competing classifiers fair hyperparameter selection targeted directly at selective-risk quality.
 
 Branch:
 
-- `feature/v1.1-stronger-selective-baselines`
+- `feature/v1.2-tuned-selective-baselines`
 
-Key commits:
+Protocol / implementation / test commits:
 
-- `cc2dbe6c3cc4457662e175ad9e7308fc917be074` — freeze protocol
-- `5981e20267899df029e76276955424e5db59ac4d` — add benchmark implementation
-- `2060cce38d7f6e3b102847f445917e36f96d8bec` — add protocol regression tests
-- `2e534c6083f7d6ec490c8ae1a3a7be55b566b04b` — document frozen result
+- `3c1fd98480a4560aac1555c32a3f7b7952fbf144` — protocol freeze
+- `ca734a32f26893a012478e5bbcdcee8c5ca4ca1e` — benchmark implementation
+- `d4ed7aa0445e3b41aa5e617bc1b1954dc0913de8` — frozen protocol tests
 
-New baselines:
+Result document:
 
-RBF SVM:
+- `docs/V12_TUNED_SELECTIVE_BASELINES_RESULT.md`
 
-- StandardScaler
-- `SVC(kernel='rbf', C=1.0, gamma='scale', probability=False)`
-- confidence from decision-function margin
+Result documentation commit:
 
-Random Forest:
+- `d653e55c5d4eb471557df2995cc0131ff862b15c`
 
-- 300 trees
-- `max_features='sqrt'`
-- confidence from maximum class probability
+### Tuning protocol
 
-No hyperparameter search.
+Outer split: 70% train / 30% untouched test.
 
-### Pooled primary family result
+Baseline selection uses 3-fold stratified inner CV on outer training only. Selection metric is lowest OOF E-AURC, with accuracy and deterministic lexical ordering only as tie-breaks.
 
-Against RBF-SVM:
+MCGC receives **no tuning**.
 
-E-AURC advantage `SVM - MCGC`:
+Frozen grids:
 
-- mean `+0.014414490689435011`
-- median `+0.004798513586381163`
+- kNN: `k={5,9,12,17,25}`, uniform/distance weights
+- logistic: `C={0.1,1,10}`
+- RBF-SVM: `C={0.1,1,10}`, `gamma={scale,0.1,1}`
+- Random Forest: depth `{None,6,12}`, leaf `{1,3,5}`, features `{sqrt,0.5}`
+
+### Primary 36-run manifold-family result
+
+Paired E-AURC advantage is baseline minus MCGC, so positive values favor MCGC.
+
+| tuned baseline | mean advantage | median | W/T/L | p |
+|---|---:|---:|---:|---:|
+| kNN | `+0.00806614` | `+0.00213883` | `28/0/8` | `0.00119324` |
+| logistic | `+0.13530450` | `+0.02771595` | `32/0/4` | `1.94e-06` |
+| RBF-SVM | `-0.00210575` | `-0.00016705` | `18/0/18` | `1.0` |
+| Random Forest | `+0.00551738` | `+0.00620743` | `26/0/10` | `0.0113310` |
+
+Ordinary AURC against tuned RF is also positive:
+
+- mean `+0.00500993`
+- median `+0.00568940`
 - W/T/L `25/0/11`
-- p `0.028816719655878842`
+- p `0.0288167`
 
-Ordinary AURC:
-
-- mean advantage `+0.016056685079267947`
-- W/T/L `22/0/14`
-- p `0.2429849540349096`
-
-Against Random Forest:
-
-E-AURC advantage `RF - MCGC`:
-
-- mean `+0.010919444296094165`
-- median `+0.009838041947084559`
-- W/T/L `31/0/5`
-- p `1.2913485988974571e-05`
-
-Ordinary AURC:
-
-- mean advantage `+0.012733213240176582`
-- median `+0.010936196421952437`
-- W/T/L `29/0/7`
-- p `0.00031255115754902363`
+Against tuned kNN, ordinary AURC mean remains positive (`+0.00656598`) but W/T/L `23/0/13` is not sign-test significant (`p=0.13250`).
 
 ### Per-dataset E-AURC
 
 `moons_hard`:
 
 - MCGC `0.018809`
-- SVM `0.024504`, MCGC W/L `11/1`
-- RF `0.027095`, MCGC W/L `12/0`
+- tuned kNN `0.021708`, MCGC W/L `7/5`
+- tuned SVM `0.023662`, MCGC W/L `10/2`
+- tuned RF `0.024398`, MCGC W/L `9/3`
 
 `circles_hard`:
 
 - MCGC `0.017257`
-- SVM `0.014876`, MCGC W/L `3/9`
-- RF `0.032230`, MCGC W/L `11/1`
+- tuned kNN `0.021627`, MCGC W/L `11/1`
+- tuned SVM `0.014990`, MCGC W/L `3/9`
+- tuned RF `0.028869`, MCGC W/L `11/1`
 
 `spirals_hard`:
 
 - MCGC `0.192063`
-- SVM `0.231993`, MCGC W/L `11/1`
-- RF `0.201563`, MCGC W/L `8/4`
-
-So MCGC does **not** beat SVM on circles. The pooled SVM claim must remain an aggregate manifold-family claim.
+- tuned kNN `0.208993`, MCGC W/L `10/2`
+- tuned SVM `0.183160`, MCGC W/L `5/7`
+- tuned RF `0.191415`, MCGC W/L `6/6`
 
 ### Controls
 
-`overlap_hd`:
+`overlap_hd`: MCGC is approximately tied with tuned kNN but worse on average than tuned SVM and RF.
 
-- MCGC `0.076918`
-- SVM `0.075446`
-- RF `0.072237`
-
-`breast_cancer`:
-
-- MCGC `0.005902`
-- SVM `0.002403`
-- RF `0.004813`
-- logistic `0.002122`
-
-The conventional tabular controls therefore bound the claim clearly: the v1.1 advantage is geometry-specific, not universal.
-
-### Reproducibility note
-
-The local benchmark completed and wrote the full JSON result. The console emitted a scikit-learn deprecation warning involving the `SVC` probability parameter. The frozen code uses `probability=False` and derives SVM risk from the decision-function margin, so probability calibration is not part of the v1.1 comparison.
-
-A dedicated v1.1 test module freezes datasets, seeds, baselines, SVM risk orientation and positive-advantage sign convention. No CI status was available for the final local-run commit at the time of this history update, so this file does not claim a CI pass for v1.1.
+`breast_cancer`: tuned logistic, SVM and RF all beat MCGC in E-AURC, while MCGC strongly beats tuned kNN.
 
 ### Conclusion
 
-**v1.1 is positive.** The v1.0 selective-manifold result survives two stronger nonlinear baseline challenges in the aggregate, most strongly against Random Forest.
+**v1.2 is a mixed but strengthening result.**
 
-Supported statement:
+The kNN advantage survives nested tuning. More importantly, the Random-Forest advantage also survives tuning in the pooled manifold family. The fixed-SVM advantage from v1.1 does not survive SVM tuning.
 
-> On the frozen nonlinear-manifold benchmark, MCGC local graph-field margin provides better excess selective-risk ranking than distance-weighted kNN confidence, fixed RBF-SVM margin confidence and fixed Random-Forest probability confidence in the aggregate, while the effect is not universal across every dataset or conventional tabular control.
+Supported reviewer-resistant statement:
+
+> On the frozen nonlinear-manifold benchmark, MCGC local graph-field margin retains lower excess selective risk than tuned kNN confidence and tuned Random-Forest confidence under nested inner-CV model selection. Tuned RBF-SVM is competitive overall and removes the fixed-SVM advantage observed in v1.1.
+
+This is stronger and more credible than claiming universal nonlinear-baseline superiority.
 
 ---
 
 # Reproducibility policy
 
 1. Freeze protocol and primary contrasts before confirmation results.
-2. Do not retune thresholds, features, datasets or metrics after viewing frozen results.
+2. Do not retune MCGC thresholds, features, datasets or metrics after viewing frozen results.
 3. Keep negative confirmations in the repository.
 4. Separate exploratory observations from confirmation claims.
 5. Keep classification, XAI and reliability claims separate.
-6. Use fixed seeds and explicit train/calibration/test separation where relevant.
+6. Use fixed seeds and explicit train/calibration/test or nested-selection separation where relevant.
 7. Run unit/regression tests before science benchmarks.
-8. Use GitHub Actions for portable regression testing when practical. Long science benchmarks may be run locally.
-9. Store complete JSON results and use console logs only as summaries.
-10. Prefer paired statistics and always report per-dataset outcomes so one benchmark cannot silently drive the aggregate claim.
+8. Use GitHub Actions when practical; long science benchmarks may be run locally.
+9. Store complete JSON outputs and use console logs only as summaries.
+10. Prefer paired statistics and report per-dataset outcomes so one benchmark cannot silently drive an aggregate claim.
 
-Local runs are commonly executed in Windows PowerShell from `C:\Articles\Clanci\MCGC-new-repo`.
+Local science runs are commonly executed in Windows PowerShell from `C:\Articles\Clanci\MCGC-new-repo`.
 
 ---
 
@@ -598,9 +441,9 @@ Local runs are commonly executed in Windows PowerShell from `C:\Articles\Clanci\
 
 ## Supported
 
-### Intrinsic path faithfulness
+### Intrinsic XAI / path faithfulness
 
-For eligible queries, path-selected training nodes are more functionally decision-relevant under delete-and-refit intervention than matched off-path controls and equal-size nearest-neighbour explanations.
+For eligible queries with nontrivial representative paths, path-selected nodes are more functionally decision-relevant under delete-and-refit intervention than matched off-path controls and equal-size nearest-neighbour explanations.
 
 Evidence: v0.9.
 
@@ -614,11 +457,11 @@ Evidence: v0.6 onward.
 
 On the frozen moons/circles/spirals family:
 
-- MCGC beats distance-weighted kNN confidence in E-AURC on `29/36` paired runs;
-- MCGC beats fixed RBF-SVM margin confidence in E-AURC on `25/36` paired runs;
-- MCGC beats fixed Random-Forest probability confidence in E-AURC on `31/36` paired runs.
+- MCGC beats **tuned kNN confidence** in E-AURC on `28/36` runs, mean advantage `+0.008066`, p `0.00119`;
+- MCGC beats **tuned Random-Forest confidence** in E-AURC on `26/36` runs, mean advantage `+0.005517`, p `0.01133`;
+- tuned RBF-SVM is approximately even overall in win count (`18/18`) and slightly better in mean E-AURC.
 
-Evidence: v1.0 and v1.1.
+Evidence: v1.2.
 
 ## Not supported / explicitly rejected
 
@@ -627,38 +470,38 @@ Evidence: v1.0 and v1.1.
 - selective walker gate as an accuracy fix;
 - trail disagreement as complementary reliability beyond local margin;
 - five-feature combined intrinsic reliability as a generally better uncertainty model;
-- universal selective-risk superiority across arbitrary data;
+- superiority to tuned RBF-SVM;
+- universal selective-risk superiority;
 - universal raw-accuracy superiority;
-- universal interpretability;
+- universal interpretability or causal explanation;
 - SOTA claims.
 
 ## Important boundaries
 
-- RBF-SVM beats MCGC on the frozen circles E-AURC comparison.
-- RBF-SVM, Random Forest and logistic regression outperform MCGC on the conventional breast-cancer control in E-AURC.
-- v0.9 path-faithfulness claims apply only to queries with nontrivial representative paths.
-
-## Next priorities
-
-1. **Tuned-baseline stress test:** keep MCGC frozen, but allow strong baselines to tune their conventional hyperparameters on an inner training/validation split or nested CV. This directly addresses the reviewer objection that fixed default SVM/RF settings may be under-tuned.
-2. **Literature/novelty audit:** especially Optimum-Path Forest, path-based classifiers, graph random-walk classifiers, class-conditioned diffusion and intrinsic graph-XAI methods.
-3. **Broader real-data validation:** prioritize datasets where nonlinear/manifold structure is plausible rather than claiming universal tabular superiority.
-4. **XAI extension:** explanation stability and counterfactual validation, while preserving the strong frozen v0.9 faithfulness result.
+- tuned RBF-SVM beats MCGC on circles and is better on average on spirals;
+- tuned SVM/RF/logistic outperform MCGC on the conventional breast-cancer control;
+- v0.9 path-faithfulness applies only to queries with nontrivial representative paths;
+- the tuned-baseline selective-risk claim is currently tied to the frozen nonlinear-manifold family.
 
 ---
 
-# Current state
+# Current development state
 
 Current branch:
 
-`feature/v1.1-stronger-selective-baselines`
+`feature/v1.2-tuned-selective-baselines`
 
-Latest scientific result document:
+Latest result document:
 
-`docs/V11_STRONGER_SELECTIVE_BASELINES_RESULT.md`
+`docs/V12_TUNED_SELECTIVE_BASELINES_RESULT.md`
 
-v1.1 result documentation commit:
+Latest result documentation commit:
 
-`2e534c6083f7d6ec490c8ae1a3a7be55b566b04b`
+`d653e55c5d4eb471557df2995cc0131ff862b15c`
 
-The next recommended frozen checkpoint is a **tuned-baseline stress test** in which MCGC remains unchanged while SVM, RF and kNN receive fair inner-split hyperparameter selection. That is the most direct way to determine whether the v1.1 selective-risk advantage survives a reviewer-grade baseline challenge.
+Recommended next priorities:
+
+1. broaden the tuned-baseline test to independent real datasets with plausible nonlinear/manifold structure, without changing MCGC;
+2. perform the deep literature/novelty audit against Optimum-Path Forest, path-based classifiers, random-walk graph classifiers, class-conditioned diffusion and intrinsic graph-XAI;
+3. extend XAI validation with stability and counterfactual tests while preserving the frozen v0.9 intervention result;
+4. only after these checks decide whether the strongest paper framing should be primarily XAI, selective classification, or a combined intrinsic-XAI + selective-confidence contribution.
