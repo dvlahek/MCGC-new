@@ -2,7 +2,11 @@ import numpy as np
 from sklearn.datasets import make_moons
 from sklearn.model_selection import train_test_split
 
-from mcgc import MultiAgentChemotacticGraphClassifier, explain_mcgc
+from mcgc import (
+    MultiAgentChemotacticGraphClassifier,
+    explain_contrastive_mcgc,
+    explain_mcgc,
+)
 
 
 def make_model_and_data():
@@ -71,3 +75,30 @@ def test_explanation_exposes_support_and_contrastive_trails():
         assert trail["kind"] == "deterministic_greedy_field_trail"
         assert len(trail["path"]) == len(trail["evidence_trace"])
         assert len(trail["gains"]) == max(0, len(trail["path"]) - 1)
+
+
+def test_contrastive_explanation_exactly_reconstructs_margin():
+    model, X_test = make_model_and_data()
+    predicted, contrasts = explain_contrastive_mcgc(model, X_test[:6])
+    np.testing.assert_array_equal(predicted, model.predict(X_test[:6]))
+    for contrast in contrasts:
+        assert contrast["positive_class"] != contrast["negative_class"]
+        assert contrast["score_margin"] >= 0.0
+        assert np.isclose(
+            contrast["score_margin"], contrast["reconstructed_margin"]
+        )
+        assert np.isclose(
+            contrast["score_margin"],
+            sum(contrast["component_deltas"].values()),
+        )
+        assert contrast["dominant_component"] in contrast["component_deltas"]
+
+
+def test_requested_contrastive_classes_are_respected():
+    model, X_test = make_model_and_data()
+    _, contrasts = explain_contrastive_mcgc(
+        model, X_test[:2], positive_class=1, negative_class=0
+    )
+    for contrast in contrasts:
+        assert contrast["positive_class"] == 1
+        assert contrast["negative_class"] == 0
