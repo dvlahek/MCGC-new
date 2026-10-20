@@ -22,10 +22,18 @@ def test_fit_predict_shape_and_labels():
 
 def test_reproducible_for_fixed_seed():
     X_train, X_test, y_train, _ = make_data()
-    params = dict(n_neighbors=8, n_walkers=5, max_steps=6, diffusion_steps=20, random_state=42)
+    params = dict(
+        n_neighbors=8,
+        n_walkers=5,
+        max_steps=6,
+        diffusion_steps=20,
+        random_state=42,
+    )
     a = MultiAgentChemotacticGraphClassifier(**params).fit(X_train, y_train)
     b = MultiAgentChemotacticGraphClassifier(**params).fit(X_train, y_train)
-    np.testing.assert_allclose(a.decision_function(X_test[:8]), b.decision_function(X_test[:8]))
+    np.testing.assert_allclose(
+        a.decision_function(X_test[:8]), b.decision_function(X_test[:8])
+    )
     np.testing.assert_array_equal(a.predict(X_test[:8]), b.predict(X_test[:8]))
 
 
@@ -38,6 +46,39 @@ def test_diagnostics_expose_trails():
     assert len(pred) == 2
     assert len(diag) == 2
     assert set(diag[0]["class_scores"]) == set(np.unique(y_train))
+    assert 0.0 <= diag[0]["walker_gate"] <= 1.0
     for class_trails in diag[0]["trails"].values():
         assert len(class_trails) == 4
-        assert {"score", "coherence", "terminal_evidence", "lost", "length"}.issubset(class_trails[0])
+        assert {
+            "score",
+            "coherence",
+            "terminal_evidence",
+            "lost",
+            "length",
+        }.issubset(class_trails[0])
+
+
+def test_selective_gate_is_largest_for_ambiguous_local_evidence():
+    X_train, _, y_train, _ = make_data()
+    clf = MultiAgentChemotacticGraphClassifier(
+        n_neighbors=8,
+        n_walkers=4,
+        max_steps=5,
+        diffusion_steps=15,
+        random_state=0,
+        adaptive_walker_gate=True,
+    ).fit(X_train, y_train)
+    scale = clf.walker_margin_scale_
+    ambiguous = clf._walker_gate(np.array([0.2, 0.2]))
+    moderate = clf._walker_gate(np.array([0.0, scale]))
+    decisive = clf._walker_gate(np.array([0.0, 3.0 * scale]))
+    assert np.isclose(ambiguous, 1.0)
+    assert 0.0 < decisive < moderate < ambiguous <= 1.0
+
+
+def test_unconditional_gate_preserves_legacy_weighting():
+    X_train, _, y_train, _ = make_data()
+    clf = MultiAgentChemotacticGraphClassifier(
+        adaptive_walker_gate=False, random_state=0
+    ).fit(X_train, y_train)
+    assert clf._walker_gate(np.array([-10.0, 10.0])) == 1.0
