@@ -23,3 +23,6 @@ jobs:
       - name: Smoke benchmark
         if: matrix.python-version == '3.11'
         run: python examples/benchmark_synthetic.py
+      - name: Ablation benchmark v0.2
+        if: matrix.python-version == '3.11'
+        run: python examples/benchmark_ablation_v02.py
