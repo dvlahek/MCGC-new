@@ -29,6 +29,10 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
     evidence together with path coherence, terminal evidence, geometry, walker
     agreement, and the fraction of walkers that lose the trail.
 
+    The top-level score weights and ``use_walkers`` are deliberately exposed so
+    the walker contribution can be ablated without changing the fitted graph or
+    class-field construction.
+
     This is a compact research prototype, not a performance-optimised model.
     """
 
@@ -50,6 +54,11 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         terminal_weight: float = 0.5,
         lost_penalty: float = 0.75,
         trail_floor: float = 1e-8,
+        use_walkers: bool = True,
+        local_evidence_weight: float = 2.0,
+        trail_score_weight: float = 0.25,
+        agreement_weight: float = 0.10,
+        lost_fraction_weight: float = 0.20,
     ) -> None:
         self.n_neighbors = n_neighbors
         self.n_walkers = n_walkers
@@ -67,6 +76,11 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         self.terminal_weight = terminal_weight
         self.lost_penalty = lost_penalty
         self.trail_floor = trail_floor
+        self.use_walkers = use_walkers
+        self.local_evidence_weight = local_evidence_weight
+        self.trail_score_weight = trail_score_weight
+        self.agreement_weight = agreement_weight
+        self.lost_fraction_weight = lost_fraction_weight
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         X, y = check_X_y(X, y)
@@ -232,6 +246,12 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         scores = np.empty(self.n_classes_, dtype=float)
         detail: Dict[int, List[TrailSummary]] = {}
         for c in range(self.n_classes_):
+            local_evidence = float(np.sum(start_affinity * self.contrast_field_[starts, c]))
+            if not self.use_walkers:
+                detail[c] = []
+                scores[c] = float(self.local_evidence_weight * local_evidence)
+                continue
+
             trails: List[TrailSummary] = []
             for _ in range(self.n_walkers):
                 s = int(rng.choice(starts, p=start_affinity))
@@ -240,12 +260,11 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
             trail_scores = np.asarray([t.score for t in trails])
             lost_fraction = float(np.mean([t.lost for t in trails]))
             agreement = 1.0 / (1.0 + float(np.std(trail_scores)))
-            local_evidence = float(np.sum(start_affinity * self.contrast_field_[starts, c]))
             scores[c] = float(
-                2.0 * local_evidence
-                + 0.25 * np.mean(trail_scores)
-                + 0.10 * agreement
-                - 0.20 * lost_fraction
+                self.local_evidence_weight * local_evidence
+                + self.trail_score_weight * np.mean(trail_scores)
+                + self.agreement_weight * agreement
+                - self.lost_fraction_weight * lost_fraction
             )
         return scores, detail
 
