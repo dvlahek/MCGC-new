@@ -22,7 +22,6 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from mcgc import MultiAgentChemotacticGraphClassifier, reliability_features
-from benchmark_ablation_v02 import make_spirals
 
 
 SEEDS = list(range(8))
@@ -39,12 +38,34 @@ FEATURE_SETS = {
 }
 
 
+def make_spirals(n_samples: int = 600, noise: float = 0.16, random_state: int = 7):
+    """Frozen two-arm spiral generator copied verbatim from the v0.2 benchmark.
+
+    Keeping the generator local makes the v0.8 confirmation script self-contained
+    when loaded directly by pytest on Windows, without changing the dataset itself.
+    """
+    rng = np.random.default_rng(random_state)
+    n = n_samples // 2
+    theta = np.linspace(0.2, 3.2 * np.pi, n)
+    radius = np.linspace(0.15, 1.0, n)
+    arm0 = np.column_stack([radius * np.cos(theta), radius * np.sin(theta)])
+    arm1 = -arm0
+    X = np.vstack([arm0, arm1])
+    X += rng.normal(scale=noise, size=X.shape)
+    y = np.concatenate([np.zeros(n, dtype=int), np.ones(n, dtype=int)])
+    order = rng.permutation(len(X))
+    return X[order], y[order]
+
+
 def dataset_for(name, seed):
     if name == "moons_hard":
         return make_moons(n_samples=700, noise=0.30, random_state=seed)
     if name == "circles_hard":
         return make_circles(
-            n_samples=700, noise=0.18, factor=0.50, random_state=seed
+            n_samples=700,
+            noise=0.18,
+            factor=0.50,
+            random_state=seed,
         )
     if name == "spirals_hard":
         return make_spirals(n_samples=700, noise=0.16, random_state=seed)
@@ -202,7 +223,10 @@ def evaluate_seed(name, seed):
         "status": "ok",
         "intrinsic_models": {},
         "external_references": external_references(
-            X_train, y_train, X_test, np.asarray(y_test)
+            X_train,
+            y_train,
+            X_test,
+            np.asarray(y_test),
         ),
     }
 
@@ -328,7 +352,43 @@ def evaluate_dataset(name):
     }
 
 
-def build_result():
+def format_number(value):
+    return "NA" if value is None else f"{value:.6f}"
+
+
+def print_summary(result):
+    print("=== MCGC v0.8 FROZEN COMBINED-RELIABILITY CONFIRMATION ===")
+    for name, dataset in result["datasets"].items():
+        local = dataset["intrinsic_models"]["local_only"]["mean_test_roc_auc"]
+        combined = dataset["intrinsic_models"]["combined_intrinsic"]["mean_test_roc_auc"]
+        delta = dataset["paired_auc_delta_combined_minus_local"]
+        print(
+            f"{name:16s} local={format_number(local)} "
+            f"combined={format_number(combined)} "
+            f"delta_mean={format_number(delta['mean'])} "
+            f"W/T/L={delta['wins']}/{delta['ties']}/{delta['losses']} "
+            f"p_sign={format_number(delta['sign_test_p_two_sided'])}"
+        )
+    print("=== CONFIRMATION SUMMARY ===")
+    for key, summary in result["confirmation_summary"].items():
+        print(
+            f"{key:28s} n={summary['n']} "
+            f"mean_delta={format_number(summary['mean'])} "
+            f"median_delta={format_number(summary['median'])} "
+            f"W/T/L={summary['wins']}/{summary['ties']}/{summary['losses']} "
+            f"p_sign={format_number(summary['sign_test_p_two_sided'])}"
+        )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("v08_frozen_combined_reliability.json"),
+    )
+    args = parser.parse_args()
+
     dataset_names = (
         "moons_hard",
         "circles_hard",
@@ -342,8 +402,8 @@ def build_result():
 
     all_paired = []
     per_family = {"synthetic": [], "real": []}
-    for name, result in datasets.items():
-        for run in result["runs"]:
+    for name, dataset_result in datasets.items():
+        for run in dataset_result["runs"]:
             if run["status"] != "ok":
                 continue
             local_auc = run["intrinsic_models"]["local_only"]["roc_auc"]
@@ -355,7 +415,7 @@ def build_result():
             family = "synthetic" if name in dataset_names[:4] else "real"
             per_family[family].append(delta)
 
-    return {
+    result = {
         "protocol": {
             "version": "0.8",
             "status": "frozen confirmation",
@@ -375,7 +435,9 @@ def build_result():
                 "No feature selection or dataset-specific retuning is allowed. "
                 "Seeds without both calibration correctness classes are skipped, "
                 "not resplit. External confidence references are contextual and "
-                "are not part of the primary paired MCGC hypothesis."
+                "are not part of the primary paired MCGC hypothesis. The two-arm "
+                "spiral generator is copied verbatim from benchmark_ablation_v02.py "
+                "to keep this confirmation script self-contained across platforms."
             ),
         },
         "datasets": datasets,
@@ -386,47 +448,9 @@ def build_result():
         },
     }
 
-
-def print_summary(result):
-    print("=== MCGC v0.8 FROZEN COMBINED RELIABILITY ===")
-    for name, dataset in result["datasets"].items():
-        local = dataset["intrinsic_models"]["local_only"]["mean_test_roc_auc"]
-        combined = dataset["intrinsic_models"]["combined_intrinsic"]["mean_test_roc_auc"]
-        delta = dataset["paired_auc_delta_combined_minus_local"]
-        print(
-            f"{name:16s} local={local!s:>8} combined={combined!s:>8} "
-            f"delta_mean={delta['mean']!s:>8} W/T/L="
-            f"{delta['wins']}/{delta['ties']}/{delta['losses']} n={delta['n']}"
-        )
-    print("=== CONFIRMATION SUMMARY ===")
-    for key, value in result["confirmation_summary"].items():
-        print(
-            f"{key}: mean_delta={value['mean']} median_delta={value['median']} "
-            f"W/T/L={value['wins']}/{value['ties']}/{value['losses']} "
-            f"n={value['n']} sign_p={value['sign_test_p_two_sided']}"
-        )
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Write the full frozen JSON result to this file and print a concise summary.",
-    )
-    args = parser.parse_args()
-
-    result = build_result()
-    payload = json.dumps(result, indent=2, sort_keys=True)
-    if args.output is None:
-        print(payload)
-        return
-
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(payload + "\n", encoding="utf-8")
+    args.output.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     print_summary(result)
-    print(f"FULL_JSON={args.output}")
+    print(f"FULL_JSON={args.output.resolve()}")
 
 
 if __name__ == "__main__":
