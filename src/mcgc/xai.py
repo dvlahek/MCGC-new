@@ -146,17 +146,7 @@ def _representative_trail(model, starts, affinity, class_index: int) -> Dict[str
 
 
 def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
-    """Explain MCGC predictions without changing the prediction mechanism.
-
-    Returns ``(predictions, explanations)``. For every query, each class gets an
-    exact additive decomposition of the score produced during this call. The
-    decomposition is checked numerically against the model score. A separate
-    deterministic representative trail is provided to make the graph evidence
-    inspectable and reproducible.
-
-    The representative trail is intentionally labelled as illustrative. The
-    stochastic aggregate remains the source of the prediction score.
-    """
+    """Explain MCGC predictions without changing the prediction mechanism."""
     check_is_fitted(model, ["class_field_", "contrast_field_", "nn_"])
     if top_support < 1:
         raise ValueError("top_support must be >= 1.")
@@ -197,9 +187,7 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
                 ),
             }
 
-        support_order = np.argsort(affinity)[::-1][
-            : min(top_support, len(starts))
-        ]
+        support_order = np.argsort(affinity)[::-1][: min(top_support, len(starts))]
         support = []
         for pos in support_order:
             node = int(starts[pos])
@@ -213,9 +201,7 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
                     "affinity": float(affinity[pos]),
                     "training_label": training_label,
                     "contrastive_evidence": {
-                        _class_value(model, c): float(
-                            model.contrast_field_[node, c]
-                        )
+                        _class_value(model, c): float(model.contrast_field_[node, c])
                         for c in range(model.n_classes_)
                     },
                 }
@@ -242,3 +228,70 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
         )
 
     return np.asarray(predictions), explanations
+
+
+def _contrastive_record(explanation: Dict[str, Any], positive, negative):
+    if positive not in explanation["classes"]:
+        raise ValueError(f"Unknown positive class: {positive!r}")
+    if negative not in explanation["classes"]:
+        raise ValueError(f"Unknown negative class: {negative!r}")
+    if positive == negative:
+        raise ValueError("Contrastive classes must be different.")
+
+    pos = explanation["classes"][positive]
+    neg = explanation["classes"][negative]
+    pc = pos["score_components"]
+    nc = neg["score_components"]
+    deltas = {
+        "local_component_delta": float(pc["local_component"] - nc["local_component"]),
+        "trail_component_delta": float(pc["trail_component"] - nc["trail_component"]),
+        "agreement_component_delta": float(
+            pc["agreement_component"] - nc["agreement_component"]
+        ),
+        "lost_component_delta": float(pc["lost_component"] - nc["lost_component"]),
+    }
+    reconstructed_margin = float(sum(deltas.values()))
+    score_margin = float(pos["score"] - neg["score"])
+    if not np.isclose(reconstructed_margin, score_margin, rtol=1e-10, atol=1e-12):
+        raise RuntimeError("Contrastive XAI decomposition does not reconstruct the score margin.")
+
+    ranked = sorted(deltas.items(), key=lambda item: abs(item[1]), reverse=True)
+    return {
+        "positive_class": positive,
+        "negative_class": negative,
+        "positive_score": float(pos["score"]),
+        "negative_score": float(neg["score"]),
+        "score_margin": score_margin,
+        "component_deltas": deltas,
+        "reconstructed_margin": reconstructed_margin,
+        "dominant_component": ranked[0][0],
+        "dominant_component_delta": float(ranked[0][1]),
+        "positive_representative_trail": pos["representative_trail"],
+        "negative_representative_trail": neg["representative_trail"],
+        "interpretation_note": (
+            "Component deltas exactly reconstruct the requested class-score difference. "
+            "Representative trails visualize the corresponding fitted evidence fields."
+        ),
+    }
+
+
+def explain_contrastive_mcgc(
+    model,
+    X: np.ndarray,
+    positive_class=None,
+    negative_class=None,
+    top_support: int = 5,
+):
+    """Return exact `why positive rather than negative` decompositions.
+
+    By default the positive class is the prediction and the negative class is
+    the runner-up, separately for each query. Supplying either class overrides
+    that side of the comparison for every query.
+    """
+    predictions, explanations = explain_mcgc(model, X, top_support=top_support)
+    records = []
+    for explanation in explanations:
+        pos = explanation["prediction"] if positive_class is None else positive_class
+        neg = explanation["runner_up"] if negative_class is None else negative_class
+        records.append(_contrastive_record(explanation, pos, neg))
+    return predictions, records
