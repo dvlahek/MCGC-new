@@ -32,3 +32,6 @@ jobs:
       - name: Selective-walker confirmation v0.5
         if: matrix.python-version == '3.11'
         run: python examples/benchmark_selective_v05.py
+      - name: Reliability benchmark v0.6
+        if: matrix.python-version == '3.11'
+        run: python examples/benchmark_reliability_v06.py
