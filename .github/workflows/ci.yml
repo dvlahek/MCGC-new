@@ -26,3 +26,6 @@ jobs:
       - name: Ablation benchmark v0.2
         if: matrix.python-version == '3.11'
         run: python examples/benchmark_ablation_v02.py
+      - name: Multi-seed confirmation v0.4
+        if: matrix.python-version == '3.11'
+        run: python examples/benchmark_multiseed_v04.py
