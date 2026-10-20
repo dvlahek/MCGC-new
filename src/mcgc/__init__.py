@@ -1,4 +1,5 @@
 from .classifier import MultiAgentChemotacticGraphClassifier, TrailSummary
+from .xai import explain_mcgc
 
-__all__ = ["MultiAgentChemotacticGraphClassifier", "TrailSummary"]
-__version__ = "0.2.0"
+__all__ = ["MultiAgentChemotacticGraphClassifier", "TrailSummary", "explain_mcgc"]
+__version__ = "0.3.0"
