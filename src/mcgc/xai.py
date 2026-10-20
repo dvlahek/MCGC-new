@@ -19,21 +19,28 @@ def _query_neighbourhood(model, x: np.ndarray):
     return distances, starts, affinity
 
 
-def _score_components(model, class_index: int, starts, affinity, trails):
-    local_evidence = float(
-        np.sum(affinity * model.contrast_field_[starts, class_index])
-    )
+def _score_components(
+    model,
+    class_index: int,
+    local_evidence: float,
+    walker_gate: float,
+    trails,
+):
     local_component = float(model.local_evidence_weight * local_evidence)
 
     if not model.use_walkers:
         return {
             "local_evidence": local_evidence,
             "local_component": local_component,
+            "walker_gate": 0.0,
             "mean_trail_score": 0.0,
+            "raw_trail_component": 0.0,
             "trail_component": 0.0,
             "agreement": 0.0,
+            "raw_agreement_component": 0.0,
             "agreement_component": 0.0,
             "lost_fraction": 0.0,
+            "raw_lost_component": 0.0,
             "lost_component": 0.0,
             "reconstructed_score": local_component,
         }
@@ -43,33 +50,33 @@ def _score_components(model, class_index: int, starts, affinity, trails):
     agreement = 1.0 / (1.0 + float(np.std(trail_scores)))
     lost_fraction = float(np.mean([trail.lost for trail in trails]))
 
-    trail_component = float(model.trail_score_weight * mean_trail_score)
-    agreement_component = float(model.agreement_weight * agreement)
-    lost_component = float(-model.lost_fraction_weight * lost_fraction)
+    raw_trail_component = float(model.trail_score_weight * mean_trail_score)
+    raw_agreement_component = float(model.agreement_weight * agreement)
+    raw_lost_component = float(-model.lost_fraction_weight * lost_fraction)
+    trail_component = float(walker_gate * raw_trail_component)
+    agreement_component = float(walker_gate * raw_agreement_component)
+    lost_component = float(walker_gate * raw_lost_component)
     reconstructed = float(
         local_component + trail_component + agreement_component + lost_component
     )
     return {
         "local_evidence": local_evidence,
         "local_component": local_component,
+        "walker_gate": float(walker_gate),
         "mean_trail_score": mean_trail_score,
+        "raw_trail_component": raw_trail_component,
         "trail_component": trail_component,
         "agreement": agreement,
+        "raw_agreement_component": raw_agreement_component,
         "agreement_component": agreement_component,
         "lost_fraction": lost_fraction,
+        "raw_lost_component": raw_lost_component,
         "lost_component": lost_component,
         "reconstructed_score": reconstructed,
     }
 
 
 def _representative_trail(model, starts, affinity, class_index: int) -> Dict[str, Any]:
-    """Build a deterministic greedy trail for visual explanation.
-
-    This traversal uses the same field, gradient, geometry and revisit terms as
-    the classifier, but takes argmax at each step rather than sampling. It is
-    therefore an illustration of the fitted evidence landscape, not a claim
-    that this single path generated the stochastic aggregate score.
-    """
     local = model.contrast_field_[starts, class_index]
     shifted = local - np.min(local) + 1e-12
     start_score = affinity * shifted
@@ -159,6 +166,8 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
     for x in Xs:
         scores, trails_by_class = model._score_query(x, rng)
         distances, starts, affinity = _query_neighbourhood(model, x)
+        local_vector = model._query_local_evidence(starts, affinity)
+        walker_gate = model._walker_gate(local_vector)
         order = np.argsort(scores)[::-1]
         winner = int(order[0])
         runner_up = int(order[1]) if len(order) > 1 else winner
@@ -167,7 +176,13 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
         per_class = {}
         for c in range(model.n_classes_):
             trails = trails_by_class[c]
-            components = _score_components(model, c, starts, affinity, trails)
+            components = _score_components(
+                model,
+                c,
+                float(local_vector[c]),
+                walker_gate,
+                trails,
+            )
             if not np.isclose(
                 components["reconstructed_score"], scores[c], rtol=1e-10, atol=1e-12
             ):
@@ -212,6 +227,8 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
                 "prediction": _class_value(model, winner),
                 "runner_up": _class_value(model, runner_up),
                 "margin": float(scores[winner] - scores[runner_up]),
+                "walker_gate": float(walker_gate),
+                "walker_margin_scale": float(model.walker_margin_scale_),
                 "class_scores": {
                     _class_value(model, c): float(scores[c])
                     for c in range(model.n_classes_)
@@ -219,10 +236,9 @@ def explain_mcgc(model, X: np.ndarray, top_support: int = 5):
                 "classes": per_class,
                 "supporting_neighbors": support,
                 "fidelity_note": (
-                    "Score components exactly reconstruct the class scores. "
-                    "Representative trails are deterministic illustrations of "
-                    "the fitted evidence field, not replacements for the "
-                    "stochastic aggregate used for prediction."
+                    "Score components, including any uncertainty gate, exactly "
+                    "reconstruct the class scores. Representative trails are "
+                    "deterministic illustrations of the fitted evidence field."
                 ),
             }
         )
@@ -253,7 +269,9 @@ def _contrastive_record(explanation: Dict[str, Any], positive, negative):
     reconstructed_margin = float(sum(deltas.values()))
     score_margin = float(pos["score"] - neg["score"])
     if not np.isclose(reconstructed_margin, score_margin, rtol=1e-10, atol=1e-12):
-        raise RuntimeError("Contrastive XAI decomposition does not reconstruct the score margin.")
+        raise RuntimeError(
+            "Contrastive XAI decomposition does not reconstruct the score margin."
+        )
 
     ranked = sorted(deltas.items(), key=lambda item: abs(item[1]), reverse=True)
     return {
@@ -262,6 +280,7 @@ def _contrastive_record(explanation: Dict[str, Any], positive, negative):
         "positive_score": float(pos["score"]),
         "negative_score": float(neg["score"]),
         "score_margin": score_margin,
+        "walker_gate": float(explanation["walker_gate"]),
         "component_deltas": deltas,
         "reconstructed_margin": reconstructed_margin,
         "dominant_component": ranked[0][0],
@@ -270,7 +289,7 @@ def _contrastive_record(explanation: Dict[str, Any], positive, negative):
         "negative_representative_trail": neg["representative_trail"],
         "interpretation_note": (
             "Component deltas exactly reconstruct the requested class-score difference. "
-            "Representative trails visualize the corresponding fitted evidence fields."
+            "Walker-derived deltas already include the query-specific uncertainty gate."
         ),
     }
 
@@ -282,12 +301,7 @@ def explain_contrastive_mcgc(
     negative_class=None,
     top_support: int = 5,
 ):
-    """Return exact `why positive rather than negative` decompositions.
-
-    By default the positive class is the prediction and the negative class is
-    the runner-up, separately for each query. Supplying either class overrides
-    that side of the comparison for every query.
-    """
+    """Return exact `why positive rather than negative` decompositions."""
     predictions, explanations = explain_mcgc(model, X, top_support=top_support)
     records = []
     for explanation in explanations:
