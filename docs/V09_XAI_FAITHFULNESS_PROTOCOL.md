@@ -4,13 +4,13 @@
 
 After the negative v0.8 combined-reliability confirmation, v0.9 shifts the primary research question from uncertainty improvement to **intrinsic explanation faithfulness**.
 
-The classifier formulation is not retuned in v0.9. The goal is to test whether the explanations exposed by the existing MCGC XAI layer are faithful, stable, and contrastive in ways that can be measured directly.
+The classifier formulation and representative-trail construction are not retuned in v0.9. The goal is to test whether explanations already exposed by MCGC identify training nodes that are functionally important to the fitted decision.
 
 ## Frozen hypotheses
 
 ### H1 — Exact decomposition fidelity
 
-For every explained query and class, the sum of the reported score components must reconstruct the model decision score to numerical tolerance. This is a hard correctness requirement, not a performance metric.
+For every explained query and class, the reported score components must reconstruct the model decision score to numerical tolerance. This is a hard correctness requirement, not a performance metric.
 
 ### H2 — Representative-path reproducibility
 
@@ -22,75 +22,92 @@ For the predicted class `c*` and runner-up class `r`, the reported contrastive c
 
 `margin(c*, r) = score(c*) - score(r)`
 
-### H4 — Supporting-sample faithfulness
+### H4 — Path-node intervention faithfulness
 
-If the explanation identifies the top supporting training samples for the predicted class, suppressing those supports from the query-local support calculation should reduce the predicted-class margin more than suppressing matched control samples of the same cardinality.
+For an evaluable query, take the existing deterministic representative path for the predicted class. Delete those path nodes from the classifier training set, refit the unchanged MCGC, and re-evaluate the original winner-vs-runner margin.
 
-This is the primary empirical v0.9 hypothesis.
-
-### H5 — Small-perturbation stability
-
-For queries whose prediction is unchanged under a small standardized input perturbation, the deterministic explanation should remain substantially similar. Similarity will be reported separately for:
-
-- top-k support overlap;
-- representative-path node overlap;
-- change in class-score decomposition.
-
-No threshold for a positive claim will be selected after seeing the results; the distributions will be reported directly.
-
-## Primary empirical contrast
+Repeat the same delete-and-refit intervention with a control set of the same cardinality. Each control node is matched, where possible, to a removed path node by training label and original standardized distance from the query, while excluding all path nodes.
 
 The primary paired quantity is:
 
-`drop_in_prediction_margin(top_support_suppression) - drop_in_prediction_margin(matched_control_suppression)`
+`faithfulness_advantage = margin_drop(path_nodes) - margin_drop(matched_off_path_controls)`
 
-Positive values support the claim that the samples identified as supports are functionally more important to the explained decision than matched controls.
+Positive values mean that the path explanation identifies nodes whose removal damages the explained decision more than removing equally sized label- and distance-matched off-path controls.
 
-## Controls
+A query is path-evaluable only if the representative winner trail contains at least two distinct training nodes. Ineligible queries are counted and reported, never replaced after looking at outcomes.
 
-Matched controls must:
+### H5 — Proximity-only explanation comparison
 
-- use the same number of training samples as the support set;
-- come from the same predicted class where possible;
-- be excluded from the reported top-support set;
-- be sampled reproducibly from a fixed random seed;
-- not trigger classifier retraining.
+As a secondary pre-specified baseline, remove the same number of nearest **off-path** training nodes and refit the model.
 
-The intervention operates only on the query-local support contribution used by the already-fitted model/explanation calculation. It must not change graph training, diffusion fields, labels, or fitted parameters.
+Report:
 
-## Datasets
+`path_vs_nearest_advantage = margin_drop(path_nodes) - margin_drop(nearest_off_path_nodes)`
 
-Use the existing v0.8 confirmation datasets without retuning:
+A positive value supports the narrower claim that MCGC's path explanation identifies functionally more consequential training nodes than a proximity-only explanation of equal size.
 
-- `moons_hard`
-- `circles_hard`
-- `spirals_hard`
-- `overlap_hd`
-- `breast_cancer`
-- `wine`
-- `digits_0_4`
+### H6 — Small-perturbation stability
 
-Use the same 8 dataset seeds where applicable.
+For queries whose prediction is unchanged under a fixed small standardized perturbation, report:
 
-## Reporting
+- top-k support overlap;
+- representative-path node overlap;
+- dominant contrastive-component consistency.
 
-Report per dataset and pooled:
+This is secondary. No positive threshold will be selected after seeing results.
 
-- number of evaluable queries;
-- mean and median primary paired margin-drop contrast;
+## Frozen benchmark scope
+
+To keep delete-and-refit computation practical while covering distinct geometry types, v0.9 uses:
+
+- `moons_hard` — nonlinear manifold;
+- `spirals_hard` — long curved manifold;
+- `overlap_hd` — overlapping higher-dimensional classes;
+- `breast_cancer` — real tabular data.
+
+Dataset seeds are `0..4`. The classifier split uses the existing 70/30 stratified convention with split seed `4000 + dataset_seed`.
+
+For each fitted model, evaluate the first 12 test queries in deterministic test-set order whose winner representative trail has at least two distinct nodes. If fewer than 12 are eligible, report all available eligible queries and the eligibility rate.
+
+No query replacement based on intervention outcome is allowed.
+
+## Classifier settings
+
+Use the existing v0.5+ MCGC settings unchanged:
+
+- `n_neighbors=12`
+- `n_walkers=12`
+- `max_steps=10`
+- `diffusion_steps=40`
+- `random_state=17`
+- `adaptive_walker_gate=True`
+
+No dataset-specific tuning is allowed.
+
+## Primary reporting
+
+Per dataset and pooled, report:
+
+- eligible / inspected queries;
+- mean and median `faithfulness_advantage`;
 - wins / ties / losses;
-- bootstrap 95% CI for the mean paired contrast;
-- support-overlap stability under small perturbation;
-- representative-path overlap stability;
+- two-sided sign-test p-value;
+- mean and median `path_vs_nearest_advantage`;
+- prediction-flip rate after each intervention;
+- mean original path length;
 - exact decomposition failure count;
 - exact contrastive-margin failure count.
 
-No feature search, no XAI metric selection after test inspection, and no dataset-specific thresholds are allowed.
+The primary v0.9 hypothesis is H4. H5 is the pre-specified comparative XAI baseline.
 
 ## Claim discipline
 
-A successful v0.9 result would support a statement such as:
+A successful H4 result would support:
 
-> MCGC exposes intrinsically traceable graph explanations whose reported supporting samples and class-contrastive score decomposition are measurably faithful to the fitted decision mechanism.
+> MCGC's intrinsic path explanations identify training nodes that are more functionally important to its decision than label- and locality-matched off-path controls.
 
-It would **not** by itself justify claims that MCGC is fully interpretable, causally explanatory in a general sense, or superior to post-hoc XAI methods.
+If H5 is also positive, a stronger but still narrow statement becomes defensible:
+
+> MCGC path explanations identify decision-relevant training nodes more effectively than equal-size proximity-only explanations for the tested tasks.
+
+Neither result by itself implies that MCGC is fully interpretable, generally causally explanatory, or universally superior to post-hoc XAI methods.
