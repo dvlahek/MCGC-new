@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
 import json
 import math
+from pathlib import Path
 
 import numpy as np
 from sklearn.datasets import (
@@ -42,10 +44,7 @@ def dataset_for(name, seed):
         return make_moons(n_samples=700, noise=0.30, random_state=seed)
     if name == "circles_hard":
         return make_circles(
-            n_samples=700,
-            noise=0.18,
-            factor=0.50,
-            random_state=seed,
+            n_samples=700, noise=0.18, factor=0.50, random_state=seed
         )
     if name == "spirals_hard":
         return make_spirals(n_samples=700, noise=0.16, random_state=seed)
@@ -137,14 +136,14 @@ def safe_error_metrics(error, risk, *, brier=False):
     return result
 
 
-def external_references(X_train, y_train, X_test, error_test):
+def external_references(X_train, y_train, X_test, y_test):
     references = {}
 
     knn = KNeighborsClassifier(n_neighbors=12, weights="distance")
     knn.fit(X_train, y_train)
     knn_prob = knn.predict_proba(X_test)
     knn_pred = knn.classes_[np.argmax(knn_prob, axis=1)]
-    knn_error = (knn_pred != error_test["y_true"]).astype(int)
+    knn_error = (knn_pred != y_test).astype(int)
     knn_risk = 1.0 - np.max(knn_prob, axis=1)
     references["weighted_knn_confidence"] = {
         "classifier_accuracy": float(np.mean(knn_error == 0)),
@@ -158,7 +157,7 @@ def external_references(X_train, y_train, X_test, error_test):
     logistic.fit(X_train, y_train)
     logistic_prob = logistic.predict_proba(X_test)
     logistic_pred = logistic.classes_[np.argmax(logistic_prob, axis=1)]
-    logistic_error = (logistic_pred != error_test["y_true"]).astype(int)
+    logistic_error = (logistic_pred != y_test).astype(int)
     logistic_risk = 1.0 - np.max(logistic_prob, axis=1)
     references["logistic_confidence"] = {
         "classifier_accuracy": float(np.mean(logistic_error == 0)),
@@ -203,10 +202,7 @@ def evaluate_seed(name, seed):
         "status": "ok",
         "intrinsic_models": {},
         "external_references": external_references(
-            X_train,
-            y_train,
-            X_test,
-            {"y_true": np.asarray(y_test)},
+            X_train, y_train, X_test, np.asarray(y_test)
         ),
     }
 
@@ -322,17 +318,17 @@ def evaluate_dataset(name):
             for status in sorted({run["status"] for run in runs})
         },
         "intrinsic_models": {
-            name: model_summary(runs, name) for name in FEATURE_SETS
+            model_name: model_summary(runs, model_name) for model_name in FEATURE_SETS
         },
         "external_references": {
-            name: reference_summary(runs, name)
-            for name in ("weighted_knn_confidence", "logistic_confidence")
+            reference_name: reference_summary(runs, reference_name)
+            for reference_name in ("weighted_knn_confidence", "logistic_confidence")
         },
         "paired_auc_delta_combined_minus_local": delta_summary(paired_delta),
     }
 
 
-def main():
+def build_result():
     dataset_names = (
         "moons_hard",
         "circles_hard",
@@ -359,7 +355,7 @@ def main():
             family = "synthetic" if name in dataset_names[:4] else "real"
             per_family[family].append(delta)
 
-    result = {
+    return {
         "protocol": {
             "version": "0.8",
             "status": "frozen confirmation",
@@ -389,7 +385,48 @@ def main():
             "real_evaluable_runs": delta_summary(per_family["real"]),
         },
     }
-    print(json.dumps(result, indent=2, sort_keys=True))
+
+
+def print_summary(result):
+    print("=== MCGC v0.8 FROZEN COMBINED RELIABILITY ===")
+    for name, dataset in result["datasets"].items():
+        local = dataset["intrinsic_models"]["local_only"]["mean_test_roc_auc"]
+        combined = dataset["intrinsic_models"]["combined_intrinsic"]["mean_test_roc_auc"]
+        delta = dataset["paired_auc_delta_combined_minus_local"]
+        print(
+            f"{name:16s} local={local!s:>8} combined={combined!s:>8} "
+            f"delta_mean={delta['mean']!s:>8} W/T/L="
+            f"{delta['wins']}/{delta['ties']}/{delta['losses']} n={delta['n']}"
+        )
+    print("=== CONFIRMATION SUMMARY ===")
+    for key, value in result["confirmation_summary"].items():
+        print(
+            f"{key}: mean_delta={value['mean']} median_delta={value['median']} "
+            f"W/T/L={value['wins']}/{value['ties']}/{value['losses']} "
+            f"n={value['n']} sign_p={value['sign_test_p_two_sided']}"
+        )
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Write the full frozen JSON result to this file and print a concise summary.",
+    )
+    args = parser.parse_args()
+
+    result = build_result()
+    payload = json.dumps(result, indent=2, sort_keys=True)
+    if args.output is None:
+        print(payload)
+        return
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(payload + "\n", encoding="utf-8")
+    print_summary(result)
+    print(f"FULL_JSON={args.output}")
 
 
 if __name__ == "__main__":
