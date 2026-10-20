@@ -29,3 +29,6 @@ jobs:
       - name: Multi-seed confirmation v0.4
         if: matrix.python-version == '3.11'
         run: python examples/benchmark_multiseed_v04.py
+      - name: Selective-walker confirmation v0.5
+        if: matrix.python-version == '3.11'
+        run: python examples/benchmark_selective_v05.py
