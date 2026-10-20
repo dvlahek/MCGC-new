@@ -22,18 +22,15 @@ class TrailSummary:
 class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
     """Experimental multi-agent chemotactic graph classifier.
 
-    During ``fit`` the estimator builds a mutualised k-NN graph over the
-    training set and diffuses one evidence field per class. During prediction,
-    several stochastic class-conditioned walkers are launched from each
-    query's local neighbourhood. A class is scored from local contrastive
-    evidence together with path coherence, terminal evidence, geometry, walker
-    agreement, and the fraction of walkers that lose the trail.
+    The model builds a mutualised k-NN graph, diffuses one evidence field per
+    class, and optionally refines local contrastive evidence with stochastic
+    class-conditioned graph walkers.
 
-    The top-level score weights and ``use_walkers`` are deliberately exposed so
-    the walker contribution can be ablated without changing the fitted graph or
-    class-field construction.
-
-    This is a compact research prototype, not a performance-optimised model.
+    ``adaptive_walker_gate=True`` makes trajectory evidence selective: walker
+    terms are strongest when the query's local class field is ambiguous and are
+    exponentially suppressed when the local field is already decisive. The
+    gate scale is learned from the median training-node class margin, so the
+    default selective rule does not require a hand-chosen confidence threshold.
     """
 
     def __init__(
@@ -59,6 +56,8 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         trail_score_weight: float = 0.25,
         agreement_weight: float = 0.10,
         lost_fraction_weight: float = 0.20,
+        adaptive_walker_gate: bool = False,
+        walker_gate_power: float = 1.0,
     ) -> None:
         self.n_neighbors = n_neighbors
         self.n_walkers = n_walkers
@@ -81,6 +80,8 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         self.trail_score_weight = trail_score_weight
         self.agreement_weight = agreement_weight
         self.lost_fraction_weight = lost_fraction_weight
+        self.adaptive_walker_gate = adaptive_walker_gate
+        self.walker_gate_power = walker_gate_power
 
     def fit(self, X: np.ndarray, y: np.ndarray):
         X, y = check_X_y(X, y)
@@ -94,6 +95,8 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
             raise ValueError("diffusion_alpha must be in [0, 1).")
         if self.temperature <= 0:
             raise ValueError("temperature must be > 0.")
+        if self.walker_gate_power <= 0:
+            raise ValueError("walker_gate_power must be > 0.")
 
         self.classes_, y_index = np.unique(y, return_inverse=True)
         self.n_classes_ = len(self.classes_)
@@ -101,7 +104,11 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
             raise ValueError("MCGC requires at least two classes.")
 
         self.scaler_ = StandardScaler() if self.standardize else None
-        Xs = self.scaler_.fit_transform(X) if self.scaler_ is not None else np.asarray(X, dtype=float)
+        Xs = (
+            self.scaler_.fit_transform(X)
+            if self.scaler_ is not None
+            else np.asarray(X, dtype=float)
+        )
         self.X_ = Xs
         self.y_index_ = y_index
         self.n_features_in_ = X.shape[1]
@@ -139,6 +146,15 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
             rivals = np.delete(field, c, axis=1)
             contrast[:, c] = field[:, c] - np.max(rivals, axis=1)
         self.contrast_field_ = contrast
+
+        sorted_contrast = np.sort(contrast, axis=1)
+        training_margins = sorted_contrast[:, -1] - sorted_contrast[:, -2]
+        positive_margins = training_margins[training_margins > 1e-12]
+        self.walker_margin_scale_ = float(
+            np.median(positive_margins) if len(positive_margins) else 1.0
+        )
+        self.walker_margin_scale_ = max(self.walker_margin_scale_, 1e-12)
+
         self.target_threshold_ = np.empty(self.n_classes_, dtype=float)
         for c in range(self.n_classes_):
             own = contrast[y_index == c, c]
@@ -147,7 +163,11 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
 
     def _scaled(self, X: np.ndarray) -> np.ndarray:
         X = check_array(X)
-        return self.scaler_.transform(X) if self.scaler_ is not None else np.asarray(X, dtype=float)
+        return (
+            self.scaler_.transform(X)
+            if self.scaler_ is not None
+            else np.asarray(X, dtype=float)
+        )
 
     def _softmax_sample(self, values: np.ndarray, rng: np.random.Generator) -> int:
         z = (values - np.max(values)) / self.temperature
@@ -155,7 +175,19 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         p /= p.sum()
         return int(rng.choice(len(values), p=p))
 
-    def _walk(self, start: int, class_index: int, rng: np.random.Generator) -> TrailSummary:
+    def _walker_gate(self, local_evidence: np.ndarray) -> float:
+        if not self.use_walkers:
+            return 0.0
+        if not self.adaptive_walker_gate:
+            return 1.0
+        ordered = np.sort(np.asarray(local_evidence, dtype=float))
+        margin = max(float(ordered[-1] - ordered[-2]), 0.0)
+        scaled = margin / self.walker_margin_scale_
+        return float(np.exp(-(scaled ** self.walker_gate_power)))
+
+    def _walk(
+        self, start: int, class_index: int, rng: np.random.Generator
+    ) -> TrailSummary:
         current = int(start)
         visited = {current}
         gains: List[float] = []
@@ -183,7 +215,9 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
             next_e = self.contrast_field_[neigh, class_index]
             grad = next_e - current_e
             weights = self.W_[current, neigh]
-            revisit = np.array([1.0 if int(j) in visited else 0.0 for j in neigh])
+            revisit = np.array(
+                [1.0 if int(j) in visited else 0.0 for j in neigh]
+            )
             desirability = (
                 self.field_weight * next_e
                 + self.gradient_weight * grad
@@ -208,7 +242,8 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         if not gains:
             terminal = evidence_trace[-1]
             return TrailSummary(
-                score=self.terminal_weight * terminal - (self.lost_penalty if lost else 0.0),
+                score=self.terminal_weight * terminal
+                - (self.lost_penalty if lost else 0.0),
                 coherence=1.0 if terminal > 0 else 0.0,
                 terminal_evidence=terminal,
                 lost=lost,
@@ -235,6 +270,19 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         )
         return distances[0], indices[0]
 
+    def _query_local_evidence(
+        self, starts: np.ndarray, start_affinity: np.ndarray
+    ) -> np.ndarray:
+        return np.asarray(
+            [
+                float(
+                    np.sum(start_affinity * self.contrast_field_[starts, c])
+                )
+                for c in range(self.n_classes_)
+            ],
+            dtype=float,
+        )
+
     def _score_query(
         self, x: np.ndarray, rng: np.random.Generator
     ) -> Tuple[np.ndarray, Dict[int, List[TrailSummary]]]:
@@ -243,13 +291,17 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         start_affinity = np.exp(-(distances**2) / (sigma**2))
         start_affinity /= start_affinity.sum()
 
+        local_evidence = self._query_local_evidence(starts, start_affinity)
+        walker_gate = self._walker_gate(local_evidence)
         scores = np.empty(self.n_classes_, dtype=float)
         detail: Dict[int, List[TrailSummary]] = {}
+
         for c in range(self.n_classes_):
-            local_evidence = float(np.sum(start_affinity * self.contrast_field_[starts, c]))
             if not self.use_walkers:
                 detail[c] = []
-                scores[c] = float(self.local_evidence_weight * local_evidence)
+                scores[c] = float(
+                    self.local_evidence_weight * local_evidence[c]
+                )
                 continue
 
             trails: List[TrailSummary] = []
@@ -260,11 +312,14 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
             trail_scores = np.asarray([t.score for t in trails])
             lost_fraction = float(np.mean([t.lost for t in trails]))
             agreement = 1.0 / (1.0 + float(np.std(trail_scores)))
-            scores[c] = float(
-                self.local_evidence_weight * local_evidence
-                + self.trail_score_weight * np.mean(trail_scores)
+            walker_component = (
+                self.trail_score_weight * np.mean(trail_scores)
                 + self.agreement_weight * agreement
                 - self.lost_fraction_weight * lost_fraction
+            )
+            scores[c] = float(
+                self.local_evidence_weight * local_evidence[c]
+                + walker_gate * walker_component
             )
         return scores, detail
 
@@ -289,18 +344,38 @@ class MultiAgentChemotacticGraphClassifier(BaseEstimator, ClassifierMixin):
         predictions = []
         diagnostics = []
         for x in Xs:
+            distances, starts = self._query_start_nodes(x)
+            sigma = max(float(distances[-1]) if len(distances) else 1.0, 1e-12)
+            affinity = np.exp(-(distances**2) / (sigma**2))
+            affinity /= affinity.sum()
+            local_evidence = self._query_local_evidence(starts, affinity)
+            gate = self._walker_gate(local_evidence)
+
             scores, detail = self._score_query(x, rng)
             winner = int(np.argmax(scores))
             predictions.append(self.classes_[winner])
             diagnostics.append(
                 {
                     "class_scores": {
-                        self.classes_[c].item() if hasattr(self.classes_[c], "item") else self.classes_[c]: float(scores[c])
+                        self.classes_[c].item()
+                        if hasattr(self.classes_[c], "item")
+                        else self.classes_[c]: float(scores[c])
                         for c in range(self.n_classes_)
                     },
-                    "winner": self.classes_[winner].item() if hasattr(self.classes_[winner], "item") else self.classes_[winner],
+                    "winner": self.classes_[winner].item()
+                    if hasattr(self.classes_[winner], "item")
+                    else self.classes_[winner],
+                    "walker_gate": float(gate),
+                    "local_evidence": {
+                        self.classes_[c].item()
+                        if hasattr(self.classes_[c], "item")
+                        else self.classes_[c]: float(local_evidence[c])
+                        for c in range(self.n_classes_)
+                    },
                     "trails": {
-                        self.classes_[c].item() if hasattr(self.classes_[c], "item") else self.classes_[c]: [t.__dict__ for t in detail[c]]
+                        self.classes_[c].item()
+                        if hasattr(self.classes_[c], "item")
+                        else self.classes_[c]: [t.__dict__ for t in detail[c]]
                         for c in range(self.n_classes_)
                     },
                 }
