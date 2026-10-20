@@ -11,7 +11,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 
-from mcgc import MultiAgentChemotacticGraphClassifier, explain_contrastive_mcgc, explain_mcgc
+from mcgc import MultiAgentChemotacticGraphClassifier, explain_mcgc
 
 
 SEEDS = list(range(5))
@@ -21,7 +21,6 @@ MIN_PREFERRED_CANDIDATES = 3
 
 WINNER_COLOR = "tab:blue"
 RUNNER_COLOR = "tab:orange"
-NEUTRAL_COLOR = "0.45"
 
 
 def mcgc_classifier():
@@ -65,6 +64,11 @@ def collect_candidates():
         print(f"SCAN seed={seed}", flush=True)
         X_train, X_test, y_train, y_test = load_split(seed)
         model = mcgc_classifier().fit(X_train, y_train)
+
+        # Important: prediction and XAI are evaluated once as one frozen batch.
+        # The stochastic walker RNG advances across the batch, so all later
+        # provenance must reuse these exact stored explanations rather than
+        # re-explaining a selected row with a freshly reset RNG.
         pred, explanations = explain_mcgc(model, X_test, top_support=TOP_SUPPORT)
         fitted[seed] = (model, X_train, X_test, y_train, y_test, pred, explanations)
 
@@ -149,6 +153,40 @@ def support_record(explanation, X_train):
     return out
 
 
+def contrastive_from_stored_explanation(exp, winner, runner):
+    """Exact contrast using the same stored stochastic realization as selection."""
+    pos = exp["classes"][winner]
+    neg = exp["classes"][runner]
+    pc = pos["score_components"]
+    nc = neg["score_components"]
+    deltas = {
+        "local_component_delta": float(pc["local_component"] - nc["local_component"]),
+        "trail_component_delta": float(pc["trail_component"] - nc["trail_component"]),
+        "agreement_component_delta": float(
+            pc["agreement_component"] - nc["agreement_component"]
+        ),
+        "lost_component_delta": float(pc["lost_component"] - nc["lost_component"]),
+    }
+    reconstructed = float(sum(deltas.values()))
+    score_margin = float(exp["class_scores"][winner] - exp["class_scores"][runner])
+    if not np.isclose(score_margin, float(exp["margin"]), rtol=1e-10, atol=1e-12):
+        raise RuntimeError("Stored explanation margin does not match stored class-score difference.")
+    if not np.isclose(reconstructed, score_margin, rtol=1e-10, atol=1e-12):
+        raise RuntimeError("Stored contrastive decomposition does not reconstruct score margin.")
+    ranked = sorted(deltas.items(), key=lambda kv: abs(kv[1]), reverse=True)
+    return {
+        "positive_class": int(winner),
+        "negative_class": int(runner),
+        "positive_score": float(pos["score"]),
+        "negative_score": float(neg["score"]),
+        "score_margin": score_margin,
+        "reconstructed_margin": reconstructed,
+        "reconstruction_abs_error": abs(score_margin - reconstructed),
+        "component_deltas": deltas,
+        "dominant_component": ranked[0][0],
+    }
+
+
 def selected_payload(selected, median_margin, pair_n, pair_counts, fitted):
     seed = selected["seed"]
     idx = selected["test_index"]
@@ -157,14 +195,8 @@ def selected_payload(selected, median_margin, pair_n, pair_counts, fitted):
     winner = py_scalar(exp["prediction"])
     runner = py_scalar(exp["runner_up"])
 
-    _, contrastive = explain_contrastive_mcgc(
-        model,
-        X_test[idx : idx + 1],
-        positive_class=winner,
-        negative_class=runner,
-        top_support=TOP_SUPPORT,
-    )
-    contrast = contrastive[0]
+    # Reuse the exact batch explanation used for candidate selection.
+    contrast = contrastive_from_stored_explanation(exp, winner, runner)
     winner_trail = exp["classes"][winner]["representative_trail"]
     runner_trail = exp["classes"][runner]["representative_trail"]
 
@@ -177,6 +209,10 @@ def selected_payload(selected, median_margin, pair_n, pair_counts, fitted):
             "preferred_pairs": [list(p) for p in PREFERRED_PAIRS],
             "minimum_preferred_candidates": MIN_PREFERRED_CANDIDATES,
             "selection_rule": "first preferred pair with >=3 candidates; then margin closest to pair median",
+            "stochastic_provenance": (
+                "Selection, prediction, class scores, and decomposition reuse the exact "
+                "stored batch explanation; no selected-row re-explanation with reset RNG."
+            ),
         },
         "selected": {
             "seed": int(seed),
@@ -197,21 +233,7 @@ def selected_payload(selected, median_margin, pair_n, pair_counts, fitted):
         "local_supporting_neighbors": support_record(exp, X_train),
         "winner_trail": trail_record(winner_trail, X_train, y_train),
         "runner_up_trail": trail_record(runner_trail, X_train, y_train),
-        "contrastive": {
-            "positive_class": int(contrast["positive_class"]),
-            "negative_class": int(contrast["negative_class"]),
-            "positive_score": float(contrast["positive_score"]),
-            "negative_score": float(contrast["negative_score"]),
-            "score_margin": float(contrast["score_margin"]),
-            "reconstructed_margin": float(contrast["reconstructed_margin"]),
-            "reconstruction_abs_error": abs(
-                float(contrast["score_margin"]) - float(contrast["reconstructed_margin"])
-            ),
-            "component_deltas": {
-                k: float(v) for k, v in contrast["component_deltas"].items()
-            },
-            "dominant_component": str(contrast["dominant_component"]),
-        },
+        "contrastive": contrast,
     }
 
 
@@ -223,21 +245,21 @@ def show_digit(ax, image, title=None, border_color="0.65"):
         spine.set_linewidth(1.4)
         spine.set_edgecolor(border_color)
     if title:
-        ax.set_title(title, fontsize=9, pad=3)
+        ax.set_title(title, fontsize=8.5, pad=3)
 
 
 def panel_query(ax, payload):
     ax.axis("off")
     s = payload["selected"]
-    sub = ax.inset_axes([0.02, 0.18, 0.44, 0.70])
+    sub = ax.inset_axes([0.02, 0.22, 0.43, 0.64])
     show_digit(sub, s["query_image"], border_color=WINNER_COLOR)
-    ax.text(0.02, 0.96, "A  Query and decision", fontsize=13, fontweight="bold", va="top")
+    ax.text(0.02, 0.97, "A  Query and decision", fontsize=13, fontweight="bold", va="top")
     lines = [
         f"True label: {s['true_label']}",
         f"Predicted: {s['prediction']}",
         f"Runner-up: {s['runner_up']}",
-        f"Score margin: {s['margin']:.3f}",
-        f"Pair-median margin: {s['pair_median_margin']:.3f}",
+        f"Winner-runner score margin: {s['margin']:.3f}",
+        f"Pair median: {s['pair_median_margin']:.3f}",
         "Nontrivial winner path: yes",
     ]
     y = 0.78
@@ -247,31 +269,30 @@ def panel_query(ax, payload):
             color = WINNER_COLOR
         elif i == 2:
             color = RUNNER_COLOR
-        ax.text(0.52, y, line, fontsize=10.5, color=color, va="top")
+        ax.text(0.50, y, line, fontsize=10, color=color, va="top")
         y -= 0.105
 
 
 def panel_support(gs, fig, payload):
     holder = fig.add_subplot(gs)
     holder.axis("off")
-    holder.text(0.0, 1.02, "B  Local query neighbourhood", fontsize=13, fontweight="bold", va="bottom")
+    holder.text(0.0, 0.98, "B  Local query neighbourhood", fontsize=13, fontweight="bold", va="top")
     holder.text(
         0.0,
-        0.93,
-        "Affinity-ranked training neighbours used for local evidence (not contribution-ranked exemplars)",
+        0.88,
+        "Affinity-ranked training neighbours; D = class-conditioned contrastive evidence",
         fontsize=8.5,
-        va="bottom",
+        va="top",
     )
-    inner = GridSpecFromSubplotSpec(1, TOP_SUPPORT, subplot_spec=gs, wspace=0.20)
+    inner = GridSpecFromSubplotSpec(1, TOP_SUPPORT, subplot_spec=gs, wspace=0.22)
     winner = payload["selected"]["prediction"]
     runner = payload["selected"]["runner_up"]
     for j, row in enumerate(payload["local_supporting_neighbors"]):
         ax = fig.add_subplot(inner[0, j])
         ev = row["contrastive_evidence"]
         title = (
-            f"y={row['training_label']}\n"
-            f"aff={row['affinity']:.2f}\n"
-            f"D{winner}={ev[str(winner)]:+.2f}\nD{runner}={ev[str(runner)]:+.2f}"
+            f"y={row['training_label']}  aff={row['affinity']:.2f}\n"
+            f"D{winner}={ev[str(winner)]:+.2f}, D{runner}={ev[str(runner)]:+.2f}"
         )
         show_digit(ax, row["image"], title=title)
 
@@ -281,23 +302,44 @@ def panel_paths(gs, fig, payload):
     holder.axis("off")
     winner = payload["selected"]["prediction"]
     runner = payload["selected"]["runner_up"]
-    holder.text(0.0, 1.02, "C  Representative trails through the fitted evidence fields", fontsize=13, fontweight="bold", va="bottom")
+    holder.text(0.0, 0.99, "C  Representative evidence trails", fontsize=13, fontweight="bold", va="top")
 
-    rows = (("Winner", payload["winner_trail"], WINNER_COLOR), ("Runner-up", payload["runner_up_trail"], RUNNER_COLOR))
-    inner = GridSpecFromSubplotSpec(2, 7, subplot_spec=gs, hspace=0.48, wspace=0.18)
-    for r, (name, trail, color) in enumerate(rows):
-        path = trail["path"][:7]
-        for c in range(7):
-            ax = fig.add_subplot(inner[r, c])
-            if c >= len(path):
-                ax.axis("off")
-                continue
-            image = trail["node_images"][c]
-            label = trail["node_labels"][c]
-            ev = trail["evidence_trace"][c]
-            show_digit(ax, image, title=f"step {c}\ny={label}, D={ev:+.2f}", border_color=color)
-            if c == 0:
-                ax.set_ylabel(f"{name}\nclass {winner if r == 0 else runner}", color=color, fontsize=9)
+    rows = [
+        ("Winner", winner, payload["winner_trail"], WINNER_COLOR, 0.55),
+        ("Runner-up", runner, payload["runner_up_trail"], RUNNER_COLOR, 0.08),
+    ]
+    for name, cls, trail, color, y0 in rows:
+        holder.text(0.01, y0 + 0.16, f"{name} class {cls}", color=color, fontsize=10, fontweight="bold", va="center")
+        n = min(len(trail["path"]), 5)
+        x0 = 0.14
+        step_w = 0.12
+        gap = 0.035
+        for c in range(n):
+            left = x0 + c * (step_w + gap)
+            ax = holder.inset_axes([left, y0, step_w, 0.28])
+            show_digit(
+                ax,
+                trail["node_images"][c],
+                title=f"step {c}\ny={trail['node_labels'][c]}, D={trail['evidence_trace'][c]:+.2f}",
+                border_color=color,
+            )
+            if c < n - 1:
+                holder.annotate(
+                    "",
+                    xy=(left + step_w + gap * 0.75, y0 + 0.14),
+                    xytext=(left + step_w + gap * 0.12, y0 + 0.14),
+                    xycoords=holder.transAxes,
+                    arrowprops={"arrowstyle": "->", "color": color, "lw": 1.5},
+                )
+        if n == 1:
+            holder.text(
+                x0 + step_w + 0.04,
+                y0 + 0.14,
+                "no further positive evidence ascent",
+                fontsize=9,
+                color=color,
+                va="center",
+            )
 
 
 def panel_trace(ax, payload):
@@ -335,7 +377,9 @@ def panel_decomposition(ax, payload):
     ax.set_xlabel("Contribution to winner - runner score margin")
     ax.set_title("E  Exact contrastive score decomposition", loc="left", fontweight="bold")
     for yi, v in zip(y, vals):
-        ax.text(v, yi, f" {v:+.3f}", va="center", ha="left" if v >= 0 else "right", fontsize=9)
+        ha = "left" if v >= 0 else "right"
+        pad = 0.01 if v >= 0 else -0.01
+        ax.text(v + pad, yi, f"{v:+.3f}", va="center", ha=ha, fontsize=9)
     ax.text(
         0.98,
         0.05,
@@ -352,8 +396,16 @@ def panel_decomposition(ax, payload):
 
 
 def make_figure(payload, out_png: Path, out_pdf: Path):
-    fig = plt.figure(figsize=(14, 10))
-    gs = GridSpec(3, 2, figure=fig, height_ratios=(1.05, 1.2, 1.0), width_ratios=(1.0, 1.55), hspace=0.36, wspace=0.28)
+    fig = plt.figure(figsize=(13.5, 8.3))
+    gs = GridSpec(
+        3,
+        2,
+        figure=fig,
+        height_ratios=(1.0, 0.82, 1.05),
+        width_ratios=(1.0, 1.55),
+        hspace=0.34,
+        wspace=0.28,
+    )
 
     ax_a = fig.add_subplot(gs[0, 0])
     panel_query(ax_a, payload)
@@ -376,9 +428,9 @@ def make_figure(payload, out_png: Path, out_pdf: Path):
         0.008,
         "Representative trails summarize the fitted class-conditioned evidence fields; they are not claimed to be the sole stochastic causal trajectory.",
         ha="center",
-        fontsize=9,
+        fontsize=8.8,
     )
-    fig.subplots_adjust(top=0.94, bottom=0.06)
+    fig.subplots_adjust(top=0.94, bottom=0.065)
     out_png.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_png, dpi=300, bbox_inches="tight")
     fig.savefig(out_pdf, bbox_inches="tight")
@@ -408,6 +460,7 @@ def main():
         f"SELECTED seed={selected['seed']} test_index={selected['test_index']} "
         f"margin={selected['margin']:.6f} pair_median={median_margin:.6f}"
     )
+    print(f"SCORE_MARGIN={payload['contrastive']['score_margin']:.6f}")
     print(f"RECONSTRUCTION_ERROR={payload['contrastive']['reconstruction_abs_error']:.3e}")
     print(f"WROTE {args.json}")
     print(f"WROTE {out_png}")
