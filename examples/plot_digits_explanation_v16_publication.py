@@ -16,15 +16,13 @@ def load_payload(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def show_digit(ax, image, border="0.6", title=None, title_size=8.5):
+def show_digit(ax, image, border="0.6"):
     ax.imshow(np.asarray(image), cmap="gray_r", interpolation="nearest")
     ax.set_xticks([])
     ax.set_yticks([])
     for spine in ax.spines.values():
         spine.set_linewidth(1.4)
         spine.set_edgecolor(border)
-    if title:
-        ax.set_title(title, fontsize=title_size, pad=3)
 
 
 def panel_a(ax, p):
@@ -50,46 +48,92 @@ def panel_a(ax, p):
 def panel_b(ax, p):
     ax.axis("off")
     ax.text(0.0, 1.0, "B  Local query neighbourhood", fontsize=14, fontweight="bold", va="top")
-    ax.text(0.0, 0.91, "Affinity-ranked training neighbours", fontsize=9.2, va="top")
+    ax.text(0.0, 0.91, "Affinity-ranked training neighbours", fontsize=9.2, va="top", color="0.30")
+
     winner = str(p["selected"]["prediction"])
     runner = str(p["selected"]["runner_up"])
     rows = p["local_supporting_neighbors"]
     n = len(rows)
     gap = 0.018
-    left0 = 0.0
     width = (1.0 - gap * (n - 1)) / n
+
     for i, row in enumerate(rows):
-        left = left0 + i * (width + gap)
-        d = ax.inset_axes([left, 0.12, width, 0.62])
+        left = i * (width + gap)
         border = WINNER if int(row["training_label"]) == int(winner) else RUNNER
+        d = ax.inset_axes([left, 0.26, width, 0.52])
         show_digit(d, row["image"], border=border)
+
         ev = row["contrastive_evidence"]
         ax.text(
             left + width / 2,
-            0.80,
-            f"y={row['training_label']}  aff={row['affinity']:.2f}\nD{winner}={ev[winner]:+.2f}, D{runner}={ev[runner]:+.2f}",
+            0.18,
+            f"y={row['training_label']}   aff={row['affinity']:.2f}",
             transform=ax.transAxes,
             ha="center",
-            va="bottom",
-            fontsize=7.7,
+            va="top",
+            fontsize=7.8,
+            color=border,
+            fontweight="bold",
+        )
+        ax.text(
+            left + width / 2,
+            0.095,
+            f"D{winner}={ev[winner]:+.2f}   D{runner}={ev[runner]:+.2f}",
+            transform=ax.transAxes,
+            ha="center",
+            va="top",
+            fontsize=7.4,
+            color="0.20",
         )
 
 
 def draw_trail_row(ax, trail, y0, label, cls, color):
-    ax.text(0.0, y0 + 0.17, f"{label} class {cls}", color=color, fontsize=11, fontweight="bold", va="center")
+    ax.text(
+        0.0,
+        y0 + 0.16,
+        f"{label} class {cls}",
+        color=color,
+        fontsize=11,
+        fontweight="bold",
+        va="center",
+    )
     n = min(len(trail["path"]), 5)
-    x0 = 0.16
-    w = 0.095
-    gap = 0.055
+    x0 = 0.17
+    w = 0.088
+    gap = 0.060
+
     for i in range(n):
         left = x0 + i * (w + gap)
-        d = ax.inset_axes([left, y0, w, 0.29])
+        d = ax.inset_axes([left, y0, w, 0.27])
         show_digit(d, trail["node_images"][i], border=color)
-        ax.text(left + w / 2, y0 + 0.31, f"step {i}\ny={trail['node_labels'][i]}, D={trail['evidence_trace'][i]:+.2f}", ha="center", va="bottom", fontsize=8.0, transform=ax.transAxes)
+        ax.text(
+            left + w / 2,
+            y0 + 0.285,
+            f"step {i}\ny={trail['node_labels'][i]}, D={trail['evidence_trace'][i]:+.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=7.8,
+            transform=ax.transAxes,
+        )
         if i < n - 1:
-            ax.annotate("", xy=(left + w + gap*0.75, y0 + 0.14), xytext=(left + w + gap*0.15, y0 + 0.14), xycoords=ax.transAxes, arrowprops={"arrowstyle":"->", "color":color, "lw":1.6})
+            ax.annotate(
+                "",
+                xy=(left + w + gap * 0.78, y0 + 0.135),
+                xytext=(left + w + gap * 0.15, y0 + 0.135),
+                xycoords=ax.transAxes,
+                arrowprops={"arrowstyle": "->", "color": color, "lw": 1.6},
+            )
+
     if n == 1:
-        ax.text(x0 + w + 0.06, y0 + 0.14, "no further positive evidence ascent", color=color, fontsize=9.2, va="center", transform=ax.transAxes)
+        ax.text(
+            x0 + w + 0.075,
+            y0 + 0.135,
+            "no further positive evidence ascent",
+            color=color,
+            fontsize=9.2,
+            va="center",
+            transform=ax.transAxes,
+        )
 
 
 def panel_c(ax, p):
@@ -116,7 +160,12 @@ def panel_e(ax, p):
     c = p["contrastive"]
     d = c["component_deltas"]
     labels = ["Local", "Trail", "Agreement", "Lost"]
-    vals = [d["local_component_delta"], d["trail_component_delta"], d["agreement_component_delta"], d["lost_component_delta"]]
+    vals = [
+        d["local_component_delta"],
+        d["trail_component_delta"],
+        d["agreement_component_delta"],
+        d["lost_component_delta"],
+    ]
     colors = [WINNER if v >= 0 else RUNNER for v in vals]
     y = np.arange(4)
     ax.barh(y, vals, color=colors, alpha=0.85)
@@ -125,27 +174,57 @@ def panel_e(ax, p):
     ax.invert_yaxis()
     ax.set_title("E  Exact contrastive score decomposition", loc="left", fontsize=13, fontweight="bold")
     ax.set_xlabel("Contribution to winner - runner score margin")
+    ax.set_xlim(min(-0.15, min(vals) - 0.08), max(vals) + 0.10)
+
     for yi, v in zip(y, vals):
-        if v >= 0:
-            ax.text(v + 0.012, yi, f"{v:+.3f}", va="center", ha="left", fontsize=9)
+        if abs(v) < 0.015:
+            ax.text(0.015, yi, f"{v:+.3f}", va="center", ha="left", fontsize=9)
+        elif v >= 0:
+            ax.text(v + 0.015, yi, f"{v:+.3f}", va="center", ha="left", fontsize=9)
         else:
-            ax.text(v - 0.012, yi, f"{v:+.3f}", va="center", ha="right", fontsize=9)
-    ax.text(0.98, 0.05, f"score margin = {c['score_margin']:.3f}\nreconstructed = {c['reconstructed_margin']:.3f}\n|error| = {c['reconstruction_abs_error']:.1e}", transform=ax.transAxes, ha="right", va="bottom", fontsize=9, bbox={"boxstyle":"round,pad=0.3", "facecolor":"white", "edgecolor":"0.8"})
+            ax.text(v - 0.015, yi, f"{v:+.3f}", va="center", ha="right", fontsize=9)
+
+    ax.text(
+        0.98,
+        0.05,
+        f"score margin = {c['score_margin']:.3f}\n"
+        f"reconstructed = {c['reconstructed_margin']:.3f}\n"
+        f"|error| = {c['reconstruction_abs_error']:.1e}",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=9,
+        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "edgecolor": "0.8"},
+    )
     ax.grid(axis="x", alpha=0.18)
 
 
 def make_figure(p, out_png: Path, out_pdf: Path):
-    fig = plt.figure(figsize=(13.2, 8.5))
-    gs = GridSpec(3, 2, figure=fig, height_ratios=(0.98, 0.95, 1.05), width_ratios=(1.0, 1.55), hspace=0.30, wspace=0.30)
-    panel_a(fig.add_subplot(gs[0,0]), p)
-    panel_b(fig.add_subplot(gs[0,1]), p)
-    panel_c(fig.add_subplot(gs[1,:]), p)
-    panel_d(fig.add_subplot(gs[2,0]), p)
-    panel_e(fig.add_subplot(gs[2,1]), p)
+    fig = plt.figure(figsize=(13.2, 8.3))
+    gs = GridSpec(
+        3,
+        2,
+        figure=fig,
+        height_ratios=(0.98, 0.92, 1.05),
+        width_ratios=(1.0, 1.55),
+        hspace=0.31,
+        wspace=0.30,
+    )
+    panel_a(fig.add_subplot(gs[0, 0]), p)
+    panel_b(fig.add_subplot(gs[0, 1]), p)
+    panel_c(fig.add_subplot(gs[1, :]), p)
+    panel_d(fig.add_subplot(gs[2, 0]), p)
+    panel_e(fig.add_subplot(gs[2, 1]), p)
+
     s = p["selected"]
-    fig.suptitle(f"Real-data MCGC explanation on digits: why {s['prediction']} rather than {s['runner_up']}", fontsize=17, fontweight="bold", y=0.988)
-    fig.subplots_adjust(top=0.93, bottom=0.10, left=0.06, right=0.985)
-    fig.text(0.5, 0.035, "Representative trails summarize the fitted class-conditioned evidence fields; they are not claimed to be the sole stochastic causal trajectory.", ha="center", fontsize=8.8)
+    fig.suptitle(
+        f"Real-data MCGC explanation on digits: why {s['prediction']} rather than {s['runner_up']}",
+        fontsize=17,
+        fontweight="bold",
+        y=0.988,
+    )
+    fig.subplots_adjust(top=0.93, bottom=0.08, left=0.06, right=0.985)
+
     out_png.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_png, dpi=300)
     fig.savefig(out_pdf)
@@ -155,7 +234,11 @@ def make_figure(p, out_png: Path, out_pdf: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", type=Path, required=True)
-    ap.add_argument("--output-prefix", type=Path, default=Path("figures/fig2_digits_real_xai_publication"))
+    ap.add_argument(
+        "--output-prefix",
+        type=Path,
+        default=Path("figures/fig2_digits_real_xai_publication"),
+    )
     args = ap.parse_args()
     p = load_payload(args.json)
     make_figure(p, args.output_prefix.with_suffix(".png"), args.output_prefix.with_suffix(".pdf"))
