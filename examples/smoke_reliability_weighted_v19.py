@@ -162,7 +162,9 @@ def make_noise(X_train, y_train_clean, noise_type: str, eta: float, dataset: str
     if noise_type == "symmetric":
         return (*v18.corrupt_labels(y_train_clean, eta, seed), seed)
     if noise_type == "boundary_targeted":
-        y_noisy, mask = v18c.corrupt_boundary_targeted(X_train, y_train_clean, eta)
+        y_noisy, mask, _ = v18c.corrupt_boundary_targeted(
+            X_train, y_train_clean, eta, seed
+        )
         return y_noisy, mask, seed
     raise ValueError(noise_type)
 
