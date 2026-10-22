@@ -1,0 +1,182 @@
+name: v2.1 OOF label-audit confirmation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/v2.1-oof-label-audit
+    paths:
+      - .github/workflows/v21-oof-label-audit.yml
+      - examples/benchmark_label_audit_v21_oof.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v21-oof-label-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: audit-${{ matrix.dataset }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        dataset:
+          - Hill_Valley_without_noise
+          - bupa
+          - ecoli
+          - mfeat_fourier
+          - mfeat_karhunen
+          - mfeat_zernike
+          - saheart
+          - schizo
+          - spectf
+          - vehicle
+          - wine_quality_red
+          - yeast
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install package and benchmark dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pandas requests
+
+      - name: Download exact PMLB dataset file
+        env:
+          DATASET: ${{ matrix.dataset }}
+        run: |
+          mkdir -p data_pmlb results
+          python - <<'PY'
+          import hashlib, os, pathlib, requests
+          name = os.environ['DATASET']
+          url = f'https://github.com/EpistasisLab/pmlb/raw/master/datasets/{name}/{name}.tsv.gz'
+          r = requests.get(url, timeout=120)
+          r.raise_for_status()
+          path = pathlib.Path('data_pmlb') / f'{name}.tsv.gz'
+          path.write_bytes(r.content)
+          print(name, len(r.content), hashlib.sha256(r.content).hexdigest())
+          PY
+
+      - name: Run strict-OOF benchmark
+        env:
+          DATASET: ${{ matrix.dataset }}
+        shell: bash
+        run: |
+          set -o pipefail
+          python -u examples/benchmark_label_audit_v21_oof.py \
+            --data-dir data_pmlb \
+            --out "results/v21_${DATASET}.jsonl" \
+            --analysis-out "results/v21_${DATASET}_analysis.json" \
+            --only "${DATASET}" \
+            2>&1 | tee "results/v21_${DATASET}.log"
+
+      - name: Upload dataset result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v21-${{ matrix.dataset }}
+          path: |
+            results/v21_${{ matrix.dataset }}.jsonl
+            results/v21_${{ matrix.dataset }}_analysis.json
+            results/v21_${{ matrix.dataset }}.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: aggregate-v2.1
+    needs: audit
+    if: ${{ always() && needs.audit.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install analysis dependencies
+        run: |
+          python -m pip install numpy pandas scikit-learn
+
+      - name: Download all dataset artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: v21-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Build combined JSONL and dataset-level analysis
+        run: |
+          mkdir -p results
+          find artifacts -maxdepth 1 -name 'v21_*.jsonl' -print0 | sort -z | xargs -0 cat > results/v21_oof_audit.jsonl
+          python - <<'PY'
+          import importlib.util, json
+          from pathlib import Path
+
+          script = Path('examples/benchmark_label_audit_v21_oof.py')
+          spec = importlib.util.spec_from_file_location('v21', script)
+          v21 = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(v21)
+
+          records = [
+              json.loads(line)
+              for line in Path('results/v21_oof_audit.jsonl').read_text(encoding='utf-8').splitlines()
+              if line.strip()
+          ]
+          expected = len(v21.DATASETS) * len(v21.CONDITIONS) * len(v21.SEEDS)
+          if len(records) != expected:
+              raise SystemExit(f'Expected {expected} records, found {len(records)}')
+
+          analysis = {
+              'protocol': {
+                  'version': '2.1',
+                  'status': 'frozen five-seed strict-OOF confirmation',
+                  'datasets': list(v21.DATASETS),
+                  'conditions': [{'noise': n, 'eta': e} for n, e in v21.CONDITIONS],
+                  'seeds': list(v21.SEEDS),
+                  'methods': list(v21.METHODS),
+                  'audit_folds': v21.AUDIT_FOLDS,
+                  'budgets': list(v21.BUDGETS),
+                  'primary_inference_unit': 'dataset',
+                  'important_change_from_v2.0': 'MCGC and Label Spreading are strictly out-of-fold; no cleaning heuristic.'
+              },
+              **v21.dataset_level_analysis(records, list(v21.DATASETS)),
+          }
+          Path('results/v21_oof_audit_analysis.json').write_text(
+              json.dumps(analysis, indent=2, sort_keys=True), encoding='utf-8'
+          )
+
+          print('=== ROC-AUC DATASET-LEVEL COMPARISONS ===')
+          for baseline, row in analysis['comparisons']['roc_auc_mean'].items():
+              print(
+                  baseline,
+                  f"delta={row['mean_delta_mcgc_minus_baseline']:+.4f}",
+                  f"W/T/L={row['dataset_wins']}/{row['dataset_ties']}/{row['dataset_losses']}",
+                  f"p={row['sign_test_p_two_sided']:.6g}",
+              )
+          PY
+
+      - name: Upload combined frozen result
+        uses: actions/upload-artifact@v4
+        with:
+          name: v21-oof-audit-combined
+          path: |
+            results/v21_oof_audit.jsonl
+            results/v21_oof_audit_analysis.json
+          retention-days: 90
