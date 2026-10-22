@@ -33,6 +33,8 @@ The current evidence is mixed by design:
 - exact contrastive `why A rather than B` decomposition,
 - deterministic representative evidence trails,
 - supporting-neighbour provenance,
+- native paired feature interventions on the fixed winner-versus-runner margin,
+- reusable explanation visualization for 2D, tabular and image-like inputs,
 - intrinsic reliability feature extraction,
 - frozen multi-seed, ablation, selective-walker and risk--coverage benchmarks,
 - GitHub Actions across Python 3.10, 3.11 and 3.12.
@@ -56,6 +58,35 @@ python examples/benchmark_multiseed_v04.py
 python examples/benchmark_selective_v05.py
 python examples/benchmark_reliability_v06.py
 ```
+
+## Explanation visualization
+
+A fitted MCGC model can be inspected without training a separate surrogate explainer:
+
+```python
+from mcgc import (
+    paired_feature_intervention_effects,
+    plot_mcgc_explanation,
+)
+
+fig, axes, explanation = plot_mcgc_explanation(
+    model,
+    query,
+    top_support=5,
+)
+
+feature_record = paired_feature_intervention_effects(model, query)
+```
+
+The visualization exposes the fitted class scores, supporting training examples, representative winner/runner evidence trails, and the exact contrastive score-component decomposition. For image-like data, support examples can be rendered in their original image geometry. Native paired feature interventions use the original winner and runner-up and, by default, replace each feature by the fitted training mean.
+
+A complete digits 3-vs-8 example is available at:
+
+```bash
+python examples/visualize_mcgc_explanation.py
+```
+
+See [`docs/EXPLANATION_VISUALIZATION.md`](docs/EXPLANATION_VISUALIZATION.md) for interpretation boundaries and examples.
 
 ## Confirmed classification result
 
@@ -99,3 +130,4 @@ See:
 - [`docs/SELECTIVE_V05.md`](docs/SELECTIVE_V05.md)
 - [`docs/RELIABILITY_V06_PROTOCOL.md`](docs/RELIABILITY_V06_PROTOCOL.md)
 - [`docs/RELIABILITY_V06_RESULTS.md`](docs/RELIABILITY_V06_RESULTS.md)
+- [`docs/EXPLANATION_VISUALIZATION.md`](docs/EXPLANATION_VISUALIZATION.md)
