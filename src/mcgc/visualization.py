@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import numpy as np
 
@@ -16,13 +16,6 @@ def _plt():
             "extras with `pip install -e .[dev]` or install matplotlib directly."
         ) from exc
     return plt
-
-
-def _class_index(model, value):
-    matches = np.flatnonzero(model.classes_ == value)
-    if len(matches) != 1:
-        raise ValueError(f"Class {value!r} is not present in the fitted model.")
-    return int(matches[0])
 
 
 def _training_X_original(model) -> np.ndarray:
@@ -44,6 +37,68 @@ def _component_deltas(explanation):
             wc["agreement_component"] - rc["agreement_component"]
         ),
         "lost": float(wc["lost_component"] - rc["lost_component"]),
+    }
+
+
+def paired_feature_intervention_effects(
+    model,
+    x: np.ndarray,
+    *,
+    reference: np.ndarray | None = None,
+):
+    """Compute native paired feature-intervention effects for one query.
+
+    The original prediction defines the fixed winner ``c+`` and runner-up
+    ``c-``. For feature ``k``, the query value is replaced by ``reference[k]``
+    and the same class contrast is recomputed:
+
+        I_k(q) = M(q) - M(q^(-k)).
+
+    By default, the reference is the mean of the fitted training data in the
+    original input space. Positive values support the original winner relative
+    to the original runner-up. Effects are not assumed to be additive.
+    """
+    x = np.asarray(x, dtype=float)
+    if x.ndim != 1:
+        raise ValueError("x must be a one-dimensional query vector.")
+
+    X_train = _training_X_original(model)
+    if reference is None:
+        reference = np.mean(X_train, axis=0)
+    reference = np.asarray(reference, dtype=float)
+    if reference.shape != x.shape:
+        raise ValueError("reference must have the same shape as x.")
+
+    _, original_records = explain_mcgc(model, x[None, :], top_support=1)
+    original = original_records[0]
+    winner = original["prediction"]
+    runner = original["runner_up"]
+    original_margin = float(
+        original["class_scores"][winner] - original["class_scores"][runner]
+    )
+
+    effects = np.empty_like(x, dtype=float)
+    intervened_margins = np.empty_like(x, dtype=float)
+    for k in range(x.size):
+        xp = x.copy()
+        xp[k] = reference[k]
+        _, records = explain_mcgc(model, xp[None, :], top_support=1)
+        rec = records[0]
+        margin = float(rec["class_scores"][winner] - rec["class_scores"][runner])
+        intervened_margins[k] = margin
+        effects[k] = original_margin - margin
+
+    return {
+        "winner": winner,
+        "runner_up": runner,
+        "original_margin": original_margin,
+        "reference": reference,
+        "effects": effects,
+        "intervened_margins": intervened_margins,
+        "interpretation_note": (
+            "Effects are paired changes in the fixed original winner-versus-runner "
+            "margin. They are not an additive score decomposition."
+        ),
     }
 
 
@@ -81,7 +136,7 @@ def _draw_support_panel(ax, model, explanation, X_train, image_shape=None):
     ax.set_title("Supporting training examples")
 
 
-def _draw_trail_panel(ax, model, explanation):
+def _draw_trail_panel(ax, explanation):
     winner = explanation["prediction"]
     runner = explanation["runner_up"]
     for label, cls in (("winner", winner), ("runner-up", runner)):
@@ -97,8 +152,7 @@ def _draw_trail_panel(ax, model, explanation):
 
 def _draw_2d_graph_panel(ax, model, x, explanation, X_train):
     y_train = model.classes_[model.y_index_]
-    classes = list(model.classes_)
-    for cls in classes:
+    for cls in model.classes_:
         mask = y_train == cls
         ax.scatter(
             X_train[mask, 0],
@@ -140,12 +194,7 @@ def plot_feature_interventions(
     ax=None,
     title: str = "Paired feature interventions",
 ):
-    """Plot fitted-margin changes from paired feature interventions.
-
-    Positive values support the original winner over the runner-up. Negative
-    values move the fitted margin in the opposite direction. The values are not
-    interpreted as an additive decomposition of the prediction.
-    """
+    """Plot fitted-margin changes from paired feature interventions."""
     plt = _plt()
     effects = np.asarray(effects, dtype=float)
     if effects.ndim != 1:
@@ -177,21 +226,11 @@ def plot_mcgc_explanation(
 ):
     """Visualize one fitted MCGC prediction and its intrinsic explanation.
 
-    The figure combines the same objects returned by :func:`explain_mcgc`:
-    class scores, supporting training examples, representative evidence trails,
-    and the exact winner-versus-runner score-component decomposition. For
-    two-dimensional inputs, the first panel becomes a graph-space view.
-
-    ``feature_effects`` is optional. When supplied, it should contain paired
-    intervention effects computed by the caller. They are visualized but are
-    not recomputed or interpreted as additive attributions.
-
-    Returns
-    -------
-    fig : matplotlib.figure.Figure
-    axes : numpy.ndarray
-    explanation : dict
-        The exact explanation record produced by :func:`explain_mcgc`.
+    The four-panel figure contains the same objects returned by
+    :func:`explain_mcgc`: support or graph context, fitted class scores,
+    representative evidence trails, and the exact contrastive score-component
+    decomposition. ``feature_effects`` is optional and produces a separate
+    intervention figure without changing the main explanation record.
     """
     plt = _plt()
     x = np.asarray(x, dtype=float)
@@ -220,7 +259,7 @@ def plot_mcgc_explanation(
         f"margin={explanation['margin']:.3f}, gate={explanation['walker_gate']:.3f}"
     )
 
-    _draw_trail_panel(ax10, model, explanation)
+    _draw_trail_panel(ax10, explanation)
 
     deltas = _component_deltas(explanation)
     names = list(deltas.keys())
