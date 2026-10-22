@@ -43,9 +43,36 @@ fig, axes, explanation = plot_mcgc_explanation(
 
 This displays the top supporting training examples as image tiles.
 
-## Feature interventions
+## Native paired feature interventions
 
-Paired feature-intervention effects are intentionally kept separate from the core explanation record because they require a user-defined intervention reference. Once the effects are computed, they can be visualized with:
+MCGC also exposes the paired intervention used in the feature-level experiments:
+
+```python
+from mcgc import paired_feature_intervention_effects
+
+record = paired_feature_intervention_effects(model, query)
+effects = record["effects"]
+```
+
+The original query first fixes the winning class `c+` and runner-up `c-`. For feature `k`, that feature is replaced by a reference value and the same class contrast is recomputed:
+
+```text
+I_k(q) = M(q) - M(q^(-k)).
+```
+
+The default reference is the mean of the fitted training data in the original input space. A custom reference vector can be supplied explicitly:
+
+```python
+record = paired_feature_intervention_effects(
+    model,
+    query,
+    reference=my_reference,
+)
+```
+
+Positive values mean that the replacement decreases the original winner-versus-runner margin, so the original feature value supported the winner relative to the runner-up. Negative values move the fixed class contrast in the opposite direction. These values are paired intervention effects, not an additive decomposition of the prediction.
+
+A generic bar view is available with:
 
 ```python
 from mcgc import plot_feature_interventions
@@ -56,13 +83,11 @@ plot_feature_interventions(
 )
 ```
 
-Positive values mean that replacing the feature by the chosen reference decreases the original winner-versus-runner margin. Negative values move the fitted margin in the opposite direction. These values are intervention effects, not an additive decomposition of the prediction.
-
-The same effects can also be passed to `plot_mcgc_explanation(..., feature_effects=...)` to create a separate feature-intervention figure.
+For image data, the effects can instead be reshaped back to the image geometry, as shown in the runnable digits example.
 
 ## Interpretation boundary
 
-The visualization should preserve the interpretation used by the XAI API:
+The visualization preserves the interpretation used by the XAI API:
 
 - score components exactly reconstruct the fitted MCGC score,
 - supporting examples are training points in the fitted query neighbourhood,
@@ -76,4 +101,10 @@ The visualization should preserve the interpretation used by the XAI API:
 python examples/visualize_mcgc_explanation.py
 ```
 
-The example uses the scikit-learn digits dataset restricted to classes 3 and 8 and writes PNG/PDF outputs under `results/visualization_demo/`.
+The example uses the scikit-learn digits dataset restricted to classes 3 and 8. It writes:
+
+- `digits_explanation.png/.pdf`,
+- `digits_feature_interventions.png/.pdf`,
+- `digits_feature_interventions_bar.png`,
+
+under `results/visualization_demo/`.
