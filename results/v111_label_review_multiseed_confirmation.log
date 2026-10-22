@@ -1,0 +1,54 @@
+=== MCGC v1.11 LABEL-REVIEW MULTI-SEED CONFIRMATION ===
+SEEDS=(0, 1, 2, 3, 4) WITH_REPAIR=False
+digits         boundary_targeted eta=0.05 seed=0 P@1%=0.923 P@2%=0.720 P@5%=0.587 P@10%=0.405
+digits         boundary_targeted eta=0.05 seed=1 P@1%=0.692 P@2%=0.840 P@5%=0.603 P@10%=0.421
+digits         boundary_targeted eta=0.05 seed=2 P@1%=0.846 P@2%=0.840 P@5%=0.698 P@10%=0.421
+digits         boundary_targeted eta=0.05 seed=3 P@1%=0.846 P@2%=0.840 P@5%=0.556 P@10%=0.413
+digits         boundary_targeted eta=0.05 seed=4 P@1%=0.846 P@2%=0.880 P@5%=0.587 P@10%=0.381
+digits         boundary_targeted eta=0.10 seed=0 P@1%=1.000 P@2%=1.000 P@5%=0.889 P@10%=0.730
+digits         boundary_targeted eta=0.10 seed=1 P@1%=1.000 P@2%=0.960 P@5%=0.968 P@10%=0.770
+digits         boundary_targeted eta=0.10 seed=2 P@1%=1.000 P@2%=0.960 P@5%=0.937 P@10%=0.817
+digits         boundary_targeted eta=0.10 seed=3 P@1%=1.000 P@2%=1.000 P@5%=0.857 P@10%=0.762
+digits         boundary_targeted eta=0.10 seed=4 P@1%=1.000 P@2%=1.000 P@5%=0.905 P@10%=0.746
+digits         symmetric         eta=0.30 seed=0 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=0.992
+digits         symmetric         eta=0.30 seed=1 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=0.992
+digits         symmetric         eta=0.30 seed=2 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+digits         symmetric         eta=0.30 seed=3 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+digits         symmetric         eta=0.30 seed=4 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+breast_cancer  boundary_targeted eta=0.05 seed=0 P@1%=0.750 P@2%=0.750 P@5%=0.500 P@10%=0.375
+breast_cancer  boundary_targeted eta=0.05 seed=1 P@1%=1.000 P@2%=0.750 P@5%=0.500 P@10%=0.350
+breast_cancer  boundary_targeted eta=0.05 seed=2 P@1%=0.750 P@2%=0.750 P@5%=0.600 P@10%=0.400
+breast_cancer  boundary_targeted eta=0.05 seed=3 P@1%=1.000 P@2%=0.875 P@5%=0.500 P@10%=0.375
+breast_cancer  boundary_targeted eta=0.05 seed=4 P@1%=0.750 P@2%=0.875 P@5%=0.500 P@10%=0.400
+breast_cancer  boundary_targeted eta=0.10 seed=0 P@1%=1.000 P@2%=1.000 P@5%=0.950 P@10%=0.775
+breast_cancer  boundary_targeted eta=0.10 seed=1 P@1%=1.000 P@2%=1.000 P@5%=0.900 P@10%=0.775
+breast_cancer  boundary_targeted eta=0.10 seed=2 P@1%=1.000 P@2%=1.000 P@5%=0.950 P@10%=0.825
+breast_cancer  boundary_targeted eta=0.10 seed=3 P@1%=1.000 P@2%=1.000 P@5%=0.900 P@10%=0.725
+breast_cancer  boundary_targeted eta=0.10 seed=4 P@1%=1.000 P@2%=1.000 P@5%=0.950 P@10%=0.800
+breast_cancer  symmetric         eta=0.30 seed=0 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=0.975
+breast_cancer  symmetric         eta=0.30 seed=1 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+breast_cancer  symmetric         eta=0.30 seed=2 P@1%=1.000 P@2%=1.000 P@5%=0.950 P@10%=0.975
+breast_cancer  symmetric         eta=0.30 seed=3 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+breast_cancer  symmetric         eta=0.30 seed=4 P@1%=1.000 P@2%=1.000 P@5%=0.950 P@10%=0.975
+wine           boundary_targeted eta=0.05 seed=0 P@1%=0.000 P@2%=0.500 P@5%=0.167 P@10%=0.250
+wine           boundary_targeted eta=0.05 seed=1 P@1%=0.000 P@2%=0.500 P@5%=0.167 P@10%=0.250
+wine           boundary_targeted eta=0.05 seed=2 P@1%=0.000 P@2%=0.500 P@5%=0.500 P@10%=0.417
+wine           boundary_targeted eta=0.05 seed=3 P@1%=1.000 P@2%=0.500 P@5%=0.333 P@10%=0.333
+wine           boundary_targeted eta=0.05 seed=4 P@1%=0.000 P@2%=0.500 P@5%=0.167 P@10%=0.333
+wine           boundary_targeted eta=0.10 seed=0 P@1%=1.000 P@2%=1.000 P@5%=0.667 P@10%=0.583
+wine           boundary_targeted eta=0.10 seed=1 P@1%=1.000 P@2%=1.000 P@5%=0.500 P@10%=0.417
+wine           boundary_targeted eta=0.10 seed=2 P@1%=0.000 P@2%=0.000 P@5%=0.500 P@10%=0.583
+wine           boundary_targeted eta=0.10 seed=3 P@1%=1.000 P@2%=1.000 P@5%=0.833 P@10%=0.750
+wine           boundary_targeted eta=0.10 seed=4 P@1%=1.000 P@2%=1.000 P@5%=0.833 P@10%=0.750
+wine           symmetric         eta=0.30 seed=0 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+wine           symmetric         eta=0.30 seed=1 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+wine           symmetric         eta=0.30 seed=2 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+wine           symmetric         eta=0.30 seed=3 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=1.000
+wine           symmetric         eta=0.30 seed=4 P@1%=1.000 P@2%=1.000 P@5%=1.000 P@10%=0.917
+
+=== GLOBAL BY BUDGET ===
+b=0.01 P=0.853 R=0.082 enrich=8.43x all-seed-win-conditions=7/9
+b=0.02 P=0.879 R=0.170 enrich=8.97x all-seed-win-conditions=8/9
+b=0.05 P=0.765 R=0.349 enrich=7.02x all-seed-win-conditions=9/9
+b=0.10 P=0.692 R=0.595 enrich=5.99x all-seed-win-conditions=9/9
+WROTE v111_label_review_multiseed_confirmation.json
