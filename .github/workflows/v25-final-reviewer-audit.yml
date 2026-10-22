@@ -1,0 +1,74 @@
+name: v2.5 final reviewer audit
+
+on:
+  push:
+    branches:
+      - experiment/v2.5-final-reviewer-audit
+  workflow_dispatch:
+
+jobs:
+  signed-faithfulness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -U pip
+      - run: pip install -e ".[dev]"
+      - run: mkdir -p results/v25
+      - name: Run signed winner-support faithfulness
+        run: |
+          python -u examples/benchmark_xai_faithfulness_v09quater_signed.py \
+            --output results/v25/v09quater_signed_faithfulness.json \
+            2>&1 | tee results/v25/v09quater_signed_faithfulness.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v25-signed-faithfulness
+          path: |
+            results/v25/v09quater_signed_faithfulness.json
+            results/v25/v09quater_signed_faithfulness.log
+
+  path-tail-stability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -U pip
+      - run: pip install -e ".[dev]"
+      - run: mkdir -p results/v25
+      - name: Run path-tail stability
+        run: |
+          python -u examples/benchmark_xai_stability_v15ter_tail.py \
+            --output results/v25/v15ter_path_tail_stability.json \
+            2>&1 | tee results/v25/v15ter_path_tail_stability.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v25-path-tail-stability
+          path: |
+            results/v25/v15ter_path_tail_stability.json
+            results/v25/v15ter_path_tail_stability.log
+
+  walker-ablation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -U pip
+      - run: pip install -e ".[dev]"
+      - run: mkdir -p results/v25
+      - name: Run field-only vs full-walker ablation
+        run: |
+          python -u examples/benchmark_walker_ablation_v25.py \
+            --output results/v25/v25_walker_ablation.json \
+            2>&1 | tee results/v25/v25_walker_ablation.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v25-walker-ablation
+          path: |
+            results/v25/v25_walker_ablation.json
+            results/v25/v25_walker_ablation.log
