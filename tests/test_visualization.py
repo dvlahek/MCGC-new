@@ -5,7 +5,12 @@ matplotlib.use("Agg")
 import numpy as np
 from sklearn.datasets import make_moons
 
-from mcgc import MultiAgentChemotacticGraphClassifier, plot_feature_interventions, plot_mcgc_explanation
+from mcgc import (
+    MultiAgentChemotacticGraphClassifier,
+    paired_feature_intervention_effects,
+    plot_feature_interventions,
+    plot_mcgc_explanation,
+)
 
 
 def _model():
@@ -38,6 +43,17 @@ def test_plot_mcgc_explanation_2d():
             )
         ),
         explanation["margin"],
+    )
+
+
+def test_paired_feature_intervention_effects():
+    X, model = _model()
+    record = paired_feature_intervention_effects(model, X[0])
+    assert record["effects"].shape == X[0].shape
+    assert record["reference"].shape == X[0].shape
+    assert np.allclose(
+        record["effects"],
+        record["original_margin"] - record["intervened_margins"],
     )
 
 
