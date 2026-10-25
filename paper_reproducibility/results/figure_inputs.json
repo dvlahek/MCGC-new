@@ -1,0 +1,55 @@
+{
+  "path_validation": {
+    "full_path_advantage": {"losses": 1, "mean": 0.5016268717387043, "median": 0.5277777777777778, "n": 18, "sign_test_p_two_sided": 0.00014495849609375, "ties": 0, "wins": 17},
+    "matched_distance_label": {"losses": 0, "mean": 0.04818698439492956, "median": 0.04283373773778812, "n": 20, "sign_test_p_two_sided": 1.9073486328125e-06, "std": 0.025387467727663884, "ties": 0, "wins": 20},
+    "same_start_tail_advantage": {"losses": 0, "mean": 0.0, "median": 0.0, "n": 14, "sign_test_p_two_sided": null, "ties": 14, "wins": 0},
+    "signed_winner_support": {"losses": 19, "mean": -0.06002382086944426, "median": -0.052491143005830805, "n": 20, "sign_test_p_two_sided": 4.00543212890625e-05, "std": 0.039829075345379085, "ties": 0, "wins": 1},
+    "tail_path_advantage": {"losses": 1, "mean": 0.4828770891406173, "median": 0.5083333333333333, "n": 18, "sign_test_p_two_sided": 0.000274658203125, "ties": 1, "wins": 16}
+  },
+  "predictive": {
+    "nonlinear_primary": {
+      "scaled_tuned_knn_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 13, "mean": 0.004804060769520228, "n": 36, "sign_test_p_two_sided": 0.13249816396273673, "std": 0.016903168681700345, "ties": 0, "wins": 23},
+        "eaurc_advantage_field_over_baseline": {"losses": 9, "mean": 0.005995006407578521, "n": 36, "sign_test_p_two_sided": 0.00393317302223295, "std": 0.013820989825094032, "ties": 0, "wins": 27},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 11, "mean": 0.02062373641644792, "n": 36, "sign_test_p_two_sided": 0.028816719655878842, "std": 0.028805950065342485, "ties": 0, "wins": 25}
+      },
+      "scaled_tuned_label_spreading_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 13, "mean": 0.00273957325338552, "n": 36, "sign_test_p_two_sided": 0.13249816396273673, "std": 0.015031174553712903, "ties": 0, "wins": 23},
+        "eaurc_advantage_field_over_baseline": {"losses": 8, "mean": 0.0031142351284978603, "n": 36, "sign_test_p_two_sided": 0.0011932429624721408, "std": 0.00937420090437604, "ties": 0, "wins": 28},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 14, "mean": 0.012023304571591863, "n": 36, "sign_test_p_two_sided": 0.2429849540349096, "std": 0.031053395885235917, "ties": 0, "wins": 22}
+      },
+      "tuned_random_forest_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 11, "mean": 0.005045484514859339, "n": 36, "sign_test_p_two_sided": 0.028816719655878842, "std": 0.017150331567200364, "ties": 0, "wins": 25},
+        "eaurc_advantage_field_over_baseline": {"losses": 10, "mean": 0.005442235504439558, "n": 36, "sign_test_p_two_sided": 0.011330984183587134, "std": 0.014444642730455799, "ties": 0, "wins": 26},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 8, "mean": 0.021997875718204017, "n": 36, "sign_test_p_two_sided": 0.0011932429624721408, "std": 0.030974885087592573, "ties": 0, "wins": 28}
+      },
+      "tuned_rbf_svm_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 21, "mean": -0.0028683169769694703, "n": 36, "sign_test_p_two_sided": 0.40503224614076316, "std": 0.01939943214665499, "ties": 0, "wins": 15},
+        "eaurc_advantage_field_over_baseline": {"losses": 19, "mean": -0.002180895302371665, "n": 36, "sign_test_p_two_sided": 0.8679394004284404, "std": 0.01641643773133455, "ties": 0, "wins": 17},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 17, "mean": 0.010386140731076037, "n": 36, "sign_test_p_two_sided": 0.8679394004284404, "std": 0.04282537328339587, "ties": 0, "wins": 19}
+      }
+    },
+    "real_primary": {
+      "scaled_tuned_knn_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 17, "mean": -0.0006969644046751772, "n": 24, "sign_test_p_two_sided": 0.03468966484069824, "std": 0.00233672022545878, "ties": 1, "wins": 6},
+        "eaurc_advantage_field_over_baseline": {"losses": 16, "mean": -0.00018929868917219855, "n": 24, "sign_test_p_two_sided": 0.0931396484375, "std": 0.002185701696574869, "ties": 1, "wins": 7},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 11, "mean": 0.0057795760936334714, "n": 23, "sign_test_p_two_sided": 1.0, "std": 0.0474026310331299, "ties": 1, "wins": 11}
+      },
+      "scaled_tuned_label_spreading_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 15, "mean": 0.0004353922617803046, "n": 24, "sign_test_p_two_sided": 0.13380050659179688, "std": 0.00539573582088282, "ties": 2, "wins": 7},
+        "eaurc_advantage_field_over_baseline": {"losses": 15, "mean": 0.0007179699175346894, "n": 24, "sign_test_p_two_sided": 0.13380050659179688, "std": 0.005297297814759562, "ties": 2, "wins": 7},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 11, "mean": 0.015292200082044557, "n": 23, "sign_test_p_two_sided": 1.0, "std": 0.05318464349675901, "ties": 2, "wins": 10}
+      },
+      "tuned_random_forest_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 23, "mean": -0.0035443702212131973, "n": 24, "sign_test_p_two_sided": 2.9802322387695312e-06, "std": 0.0024774740932867498, "ties": 0, "wins": 1},
+        "eaurc_advantage_field_over_baseline": {"losses": 23, "mean": -0.0023487663993900765, "n": 24, "sign_test_p_two_sided": 2.9802322387695312e-06, "std": 0.001831868026197934, "ties": 0, "wins": 1},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 17, "mean": -0.032945758299740675, "n": 22, "sign_test_p_two_sided": 0.01690053939819336, "std": 0.04020903715264131, "ties": 0, "wins": 5}
+      },
+      "tuned_rbf_svm_confidence": {
+        "aurc_advantage_field_over_baseline": {"losses": 18, "mean": -0.0011640874051310165, "n": 24, "sign_test_p_two_sided": 0.010622024536132812, "std": 0.004762863117565995, "ties": 1, "wins": 5},
+        "eaurc_advantage_field_over_baseline": {"losses": 20, "mean": -0.0006452410288849767, "n": 24, "sign_test_p_two_sided": 0.00048828125, "std": 0.0038747873946714047, "ties": 1, "wins": 3},
+        "error_detection_auc_advantage_field_over_baseline": {"losses": 18, "mean": -0.013536922275428704, "n": 20, "sign_test_p_two_sided": 0.0004024505615234375, "std": 0.0911679540650616, "ties": 0, "wins": 2}
+      }
+    }
+  }
+}
