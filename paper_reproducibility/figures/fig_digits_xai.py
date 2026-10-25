@@ -7,12 +7,21 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import FancyArrowPatch
 from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "xai"))
 from field_only_cgec import FieldOnlyCGEC  # noqa: E402
+
+
+def image_axis(ax, values, title=None):
+    ax.imshow(np.asarray(values).reshape(8, 8), cmap="gray_r", vmin=0, vmax=16, interpolation="nearest")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    if title:
+        ax.set_title(title, fontsize=8, pad=2)
 
 
 def main():
@@ -37,96 +46,115 @@ def main():
 
     winner = exp["prediction"]
     runner = exp["runner_up"]
-    c_plus = model.class_to_index_[winner]
-    c_minus = model.class_to_index_[runner]
+    margin = exp["margin"]
+    contrib = exp["neighbour_margin_contributions"]
+    effects = np.asarray(exp["feature_interventions"]["effects"], dtype=float)
+    L = np.asarray(contrib["local_evidence_vector"], dtype=float)
+    nodes = np.asarray(contrib["nodes"], dtype=int)
+    affinities = np.asarray(contrib["affinities"], dtype=float)
+    C = np.asarray(contrib["contributions"], dtype=float)
+    assert np.isclose(C.sum(), margin, rtol=1e-11, atol=1e-12)
 
-    base_margin = exp["margin"]
-    train_mean = Xtr.mean(axis=0)
-    effects = []
-    for k in range(Xtr.shape[1]):
-        qk = q.copy()
-        qk[k] = train_mean[k]
-        _, _, _, Lk = model.local_evidence(qk)
-        mk = float(Lk[c_plus] - Lk[c_minus])
-        effects.append(base_margin - mk)
-    effects = np.asarray(effects)
-    top_features = np.argsort(-np.abs(effects))[:10]
+    fig = plt.figure(figsize=(12.6, 8.4))
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.0, 1.05], width_ratios=[1.0, 1.55], hspace=0.52, wspace=0.30)
 
-    fig = plt.figure(figsize=(12.4, 6.4))
-    gs = fig.add_gridspec(2, 2, height_ratios=[1.0, 1.05], width_ratios=[1.0, 1.55], hspace=0.48, wspace=0.32)
-
-    ax = fig.add_subplot(gs[0, 0])
-    ax.axis("off")
-    ax.set_title("A  Query and decision", loc="left", fontweight="bold")
-    img_ax = ax.inset_axes([0.05, 0.08, 0.48, 0.78])
-    img_ax.imshow(q.reshape(8, 8), cmap="gray_r")
-    img_ax.axis("off")
-    ax.text(
-        0.58, 0.67,
-        f"True label: {int(yte[query_index])}\n"
-        f"Predicted: {winner}\n"
-        f"Runner-up: {runner}\n\n"
-        f"Local evidence margin: {base_margin:.3f}",
-        transform=ax.transAxes, va="top", ha="left", fontsize=10
-    )
+    outer = fig.add_subplot(gs[0, 0])
+    outer.axis("off")
+    outer.set_title("A  Query and local class evidence", loc="left", fontweight="bold")
+    qax = outer.inset_axes([0.02, 0.12, 0.37, 0.72])
+    image_axis(qax, q)
+    qax.text(0.5, -0.08, f"query $q$\ntrue label {int(yte[query_index])}", transform=qax.transAxes,
+             ha="center", va="top", fontsize=8)
+    lax = outer.inset_axes([0.47, 0.10, 0.51, 0.78])
+    order = np.argsort(-L)
+    cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    bar_colors = [cycle[0] if i == model.class_to_index_[winner] else cycle[1] if i == model.class_to_index_[runner] else "0.75" for i in order]
+    lax.barh(np.arange(len(order))[::-1], L[order], color=bar_colors, height=0.68)
+    lax.set_yticks(np.arange(len(order))[::-1])
+    lax.set_yticklabels([str(model.classes_[i]) for i in order], fontsize=7)
+    lax.axvline(0, linewidth=0.7)
+    lax.set_xlabel(r"local class evidence $L_c(q)$", fontsize=8)
+    lax.tick_params(axis="x", labelsize=7)
+    lax.spines["top"].set_visible(False)
+    lax.spines["right"].set_visible(False)
+    lax.text(1.0, 1.02, rf"$\hat y={winner}$, runner-up {runner}" + "\n" + rf"$M(q)={margin:.3f}$",
+             transform=lax.transAxes, ha="right", va="bottom", fontsize=8)
 
     ax = fig.add_subplot(gs[0, 1])
-    ax.axis("off")
-    ax.set_title("B  Local support examples", loc="left", fontweight="bold")
-    supports = exp["supporting_neighbors"]
-    for i, row in enumerate(supports):
-        x0 = 0.015 + i * 0.195
-        inset = ax.inset_axes([x0, 0.29, 0.16, 0.52])
-        inset.imshow(Xtr[row["node_index"]].reshape(8, 8), cmap="gray_r")
-        inset.axis("off")
-        ax.text(
-            x0, 0.13,
-            f"$a_j={row['affinity']:.2f}$\nlabel={row['training_label']}",
-            transform=ax.transAxes, fontsize=8, ha="left", va="top"
-        )
-
-    ax = fig.add_subplot(gs[1, 0])
-    ax.axis("off")
-    ax.set_title("C  Representative evidence paths", loc="left", fontweight="bold")
-    rows = [(winner, 0.56, "Winner"), (runner, 0.06, "Runner-up")]
-    for cls, y0, role in rows:
-        pth = exp["paths"][str(cls)]["path"]
-        tr = exp["paths"][str(cls)]["evidence_trace"]
-        ax.text(0.00, y0 + 0.35, f"{role} class {cls}", transform=ax.transAxes, fontsize=9, fontweight="bold")
-        n = len(pth)
-        step_w = 0.23
-        gap = 0.12
-        for j, node in enumerate(pth):
-            x0 = 0.04 + j * (step_w + gap)
-            inset = ax.inset_axes([x0, y0 + 0.05, step_w, 0.25])
-            inset.imshow(Xtr[node].reshape(8, 8), cmap="gray_r")
-            inset.axis("off")
-            ax.text(
-                x0 + step_w / 2, y0,
-                f"step {j}\n$D={tr[j]:.2f}$",
-                transform=ax.transAxes, fontsize=7.3, ha="center", va="top"
-            )
-            if j < n - 1:
-                ax.annotate(
-                    "",
-                    xy=(x0 + step_w + gap * 0.85, y0 + 0.18),
-                    xytext=(x0 + step_w + gap * 0.15, y0 + 0.18),
-                    xycoords=ax.transAxes,
-                    arrowprops=dict(arrowstyle="->", lw=1.0),
-                )
-
-    ax = fig.add_subplot(gs[1, 1])
-    vals = effects[top_features][::-1]
-    labels = [f"pixel ({k//8},{k%8})" for k in top_features[::-1]]
-    y_pos = np.arange(len(vals))
-    ax.barh(y_pos, vals)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.axvline(0, linewidth=0.8)
-    ax.set_xlabel("Paired intervention effect $I_k(q)$")
-    ax.set_title("D  Feature intervention on the fixed winner--runner margin", loc="left", fontweight="bold")
+    ax.set_title(r"B  Exact margin decomposition over neighbours, $M(q)=\sum_j C_j(q)$", loc="left", fontweight="bold")
+    affinity_order = np.argsort(-affinities)
+    cumulative = 0.0
+    cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for i, pos in enumerate(affinity_order):
+        c = C[pos]
+        ax.bar(i, c, bottom=cumulative, width=0.72, color=cycle[0] if c >= 0 else cycle[1])
+        if i < len(affinity_order) - 1:
+            ax.plot([i + 0.36, i + 0.64], [cumulative + c, cumulative + c], linewidth=0.6)
+        cumulative += c
+    ax.bar(len(affinity_order) + 0.4, margin, width=0.72, color="0.25")
+    ax.text(len(affinity_order) + 0.4, margin + 0.012, f"{margin:.3f}", ha="center", fontsize=8)
+    ax.axhline(0, linewidth=0.7)
+    ax.set_ylabel("cumulative winner--runner margin")
+    ax.set_xticks(list(range(len(affinity_order))) + [len(affinity_order) + 0.4])
+    neighbour_labels = [f"{ytr[nodes[p]]}\n{affinities[p]:.2f}" for p in affinity_order]
+    ax.set_xticklabels(neighbour_labels + ["$M(q)$"], fontsize=7)
+    ax.set_xlabel("training label and query affinity $a_j(q)$")
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+
+    outer = fig.add_subplot(gs[1, 0])
+    outer.axis("off")
+    outer.set_title(r"C  Paired feature interventions $I_k(q)$", loc="left", fontweight="bold")
+    qax = outer.inset_axes([0.02, 0.13, 0.40, 0.68])
+    image_axis(qax, q, "query")
+    hax = outer.inset_axes([0.48, 0.13, 0.40, 0.68])
+    lim = float(np.max(np.abs(effects)))
+    hm = hax.imshow(effects.reshape(8, 8), cmap="coolwarm_r", vmin=-lim, vmax=lim, interpolation="nearest")
+    hax.contour(q.reshape(8, 8), levels=[8], linewidths=0.45, alpha=0.45)
+    hax.set_xticks([])
+    hax.set_yticks([])
+    hax.set_title(r"$I_k(q)$ per pixel", fontsize=8, pad=2)
+    cax = outer.inset_axes([0.91, 0.16, 0.035, 0.62])
+    cb = fig.colorbar(hm, cax=cax)
+    cb.ax.tick_params(labelsize=7)
+    cb.ax.text(0.5, 1.04, f"favours {winner}", transform=cb.ax.transAxes, fontsize=7, ha="center")
+    cb.ax.text(0.5, -0.05, f"favours {runner}", transform=cb.ax.transAxes, fontsize=7, ha="center", va="top")
+
+    ax = fig.add_subplot(gs[1, 1])
+    ax.axis("off")
+    ax.set_title("D  Representative evidence paths", loc="left", fontweight="bold")
+    rows = [(winner, 0.57, "winner"), (runner, 0.08, "runner-up")]
+    cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    for row_idx, (cls, y0, role) in enumerate(rows):
+        p = exp["paths"][str(cls)]["path"]
+        trace = exp["paths"][str(cls)]["evidence_trace"]
+        threshold = exp["paths"][str(cls)]["threshold"]
+        reason = exp["paths"][str(cls)]["termination_reason"]
+        color = cycle[row_idx]
+        ax.text(0.00, y0 + 0.31, f"{role} class {cls}", transform=ax.transAxes, fontsize=9, fontweight="bold", color=color)
+        step_w = 0.14
+        gap = 0.055
+        for j, node in enumerate(p):
+            x0 = 0.03 + j * (step_w + gap)
+            iax = ax.inset_axes([x0, y0 + 0.06, step_w, 0.20])
+            image_axis(iax, Xtr[node])
+            for spine in iax.spines.values():
+                spine.set_edgecolor(color)
+                spine.set_linewidth(1.2)
+            reached = trace[j] >= threshold
+            ax.text(x0 + step_w / 2, y0, f"step {j}\n$D={trace[j]:.2f}$" + ("  ✓" if reached else ""),
+                    transform=ax.transAxes, fontsize=7, ha="center", va="top")
+            if j < len(p) - 1:
+                ax.add_patch(FancyArrowPatch(
+                    (x0 + step_w + 0.004, y0 + 0.16),
+                    (x0 + step_w + gap - 0.004, y0 + 0.16),
+                    transform=ax.transAxes, arrowstyle="-|>", mutation_scale=8,
+                    color=color, linewidth=1.0
+                ))
+        xe = min(0.97, 0.03 + len(p) * (step_w + gap) + 0.01)
+        end_text = rf"$\tau_{{{cls}}}={threshold:.2f}$" + "\n"
+        end_text += "threshold reached" if reason == "threshold_reached" else reason.replace("_", " ")
+        ax.text(xe, y0 + 0.16, end_text, transform=ax.transAxes, fontsize=7.2, va="center")
 
     pdf = args.output_dir / "fig_digits_real_xai.pdf"
     png = args.output_dir / "fig_digits_real_xai.png"
@@ -134,7 +162,7 @@ def main():
     fig.savefig(png, dpi=400, bbox_inches="tight")
     plt.close(fig)
 
-    provenance = {
+    runtime_provenance = {
         "dataset": "sklearn digits",
         "seed": seed,
         "outer_split": "stratified 70/30",
@@ -142,10 +170,8 @@ def main():
         "query_test_index": query_index,
         "true_label": int(yte[query_index]),
         "explanation": exp,
-        "top_intervention_features": [int(k) for k in top_features],
-        "top_intervention_effects": [float(effects[k]) for k in top_features],
     }
-    (ROOT / "provenance" / "digits_query.json").write_text(json.dumps(provenance, indent=2) + "\n")
+    (args.output_dir / "digits_query_runtime.json").write_text(json.dumps(runtime_provenance, indent=2) + "\n")
     print(pdf)
     print(png)
 
