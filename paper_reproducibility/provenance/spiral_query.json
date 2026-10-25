@@ -7,16 +7,36 @@
   "true_label": 0,
   "prediction": 0,
   "runner_up": 1,
-  "local_evidence": {"0": 0.04876279795726305, "1": -0.04876279795726305},
+  "local_evidence": {
+    "0": 0.04876279795726305,
+    "1": -0.04876279795726305
+  },
   "margin": 0.0975255959145261,
-  "winner_path": [24, 4, 375, 319],
-  "winner_trace": [0.19163004146760299, 0.1903002546918865, 0.2027832095304567, 0.46962602391780317],
-  "winner_threshold": 0.2813229453444021,
-  "winner_termination": "threshold_reached",
-  "runner_path": [380, 423, 279, 28, 450, 202, 392, 259],
-  "runner_trace": [0.07094215207249799, 0.0854774957523099, 0.05137871225225932, 0.142318978666914, 0.16993787832725094, 0.18575634506636746, 0.18799911445371226, 0.18887068995699163],
-  "runner_threshold": 0.28198201096766423,
-  "runner_termination": "no_evidence_increase_above_floor",
-  "top_support_nodes": [380, 287, 231, 24, 4],
-  "top_support_affinities": [0.12402733254406198, 0.11240356073052825, 0.1085757646530858, 0.10511526994232381, 0.10176591978046702]
+  "paths": {
+    "0": {
+      "class_index": 0,
+      "class_label": 0,
+      "entry_node": 24,
+      "path": [24, 4, 375, 319],
+      "evidence_trace": [0.19163004146760299, 0.1903002546918865, 0.2027832095304567, 0.46962602391780317],
+      "threshold": 0.2813229453444021,
+      "termination_reason": "threshold_reached"
+    },
+    "1": {
+      "class_index": 1,
+      "class_label": 1,
+      "entry_node": 380,
+      "path": [380, 423, 279, 28, 450, 202, 392, 259],
+      "evidence_trace": [0.07094215207249799, 0.0854774957523099, 0.05137871225225932, 0.142318978666914, 0.16993787832725094, 0.18575634506636746, 0.18799911445371226, 0.18887068995699163],
+      "threshold": 0.28198201096766423,
+      "termination_reason": "no_evidence_increase_above_floor"
+    }
+  },
+  "supporting_neighbors": [
+    {"node_index": 380, "distance": 0.042210424745427175, "affinity": 0.12402733254406198, "training_label": 1, "contrastive_evidence": {"0": -0.07094215207249799, "1": 0.07094215207249799}},
+    {"node_index": 287, "distance": 0.12975361023873733, "affinity": 0.11240356073052825, "training_label": 1, "contrastive_evidence": {"0": -0.016874420806879897, "1": 0.016874420806879897}},
+    {"node_index": 231, "distance": 0.1487830120368423, "affinity": 0.1085757646530858, "training_label": 1, "contrastive_evidence": {"0": 0.03323002581179241, "1": -0.03323002581179241}},
+    {"node_index": 24, "distance": 0.16459505921572917, "affinity": 0.10511526994232381, "training_label": 0, "contrastive_evidence": {"0": 0.19163004146760299, "1": -0.19163004146760299}},
+    {"node_index": 4, "distance": 0.17901229162961993, "affinity": 0.10176591978046702, "training_label": 0, "contrastive_evidence": {"0": 0.1903002546918865, "1": -0.1903002546918865}}
+  ]
 }
