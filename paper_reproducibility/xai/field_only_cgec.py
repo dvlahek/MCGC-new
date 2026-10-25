@@ -23,11 +23,12 @@ class CGECConfig:
 
 
 class FieldOnlyCGEC:
-    """Paper-locked field-only CGEC core used for reproducibility/XAI.
+    """Paper-locked field-only CGEC used for reproducibility and XAI.
 
     Prediction is based only on affinity-weighted local class evidence L_c(q).
-    The deterministic representative path is constructed after prediction from
-    the same fitted graph-evidence field and is not part of the prediction score.
+    Support examples, exact neighbour margin contributions, paired feature
+    interventions, and deterministic representative paths are exposed from the
+    same fitted graph-evidence representation after prediction.
     """
 
     def __init__(self, config: CGECConfig | None = None):
@@ -47,6 +48,7 @@ class FieldOnlyCGEC:
         self.classes_ = np.unique(y)
         self.n_classes_ = len(self.classes_)
         self.class_to_index_ = {c: i for i, c in enumerate(self.classes_)}
+        self.raw_feature_mean_ = X.mean(axis=0)
 
         n = len(X)
         dist = cdist(self.Z_, self.Z_)
@@ -86,6 +88,10 @@ class FieldOnlyCGEC:
         )
         return self
 
+    @staticmethod
+    def _py(value):
+        return value.item() if hasattr(value, "item") else value
+
     def _query_neighbourhood(self, x: np.ndarray):
         cfg = self.config
         x = np.asarray(x, dtype=float).reshape(1, -1)
@@ -100,10 +106,77 @@ class FieldOnlyCGEC:
     def local_evidence(self, x: np.ndarray):
         _, distances, starts, affinity = self._query_neighbourhood(x)
         L = np.array(
-            [affinity @ self.contrast_field_[starts, c] for c in range(self.n_classes_)],
+            [
+                affinity @ self.contrast_field_[starts, c]
+                for c in range(self.n_classes_)
+            ],
             dtype=float,
         )
         return distances, starts, affinity, L
+
+    def margin_contributions(self, x: np.ndarray) -> Dict[str, object]:
+        """Exact neighbour decomposition of the original winner-runner margin.
+
+        C_j(q) = a_j(q) [D_j^(c+) - D_j^(c-)], and sum_j C_j(q) = M(q).
+        """
+        distances, starts, affinity, L = self.local_evidence(x)
+        order = np.argsort(L)[::-1]
+        winner = int(order[0])
+        runner = int(order[1]) if len(order) > 1 else winner
+        contributions = affinity * (
+            self.contrast_field_[starts, winner] - self.contrast_field_[starts, runner]
+        )
+        margin = float(L[winner] - L[runner])
+        if not np.isclose(float(np.sum(contributions)), margin, rtol=1e-11, atol=1e-12):
+            raise RuntimeError("Neighbour contributions do not reconstruct the margin")
+        return {
+            "winner_index": winner,
+            "runner_index": runner,
+            "winner": self._py(self.classes_[winner]),
+            "runner_up": self._py(self.classes_[runner]),
+            "margin": margin,
+            "nodes": [int(v) for v in starts],
+            "distances": [float(v) for v in distances],
+            "affinities": [float(v) for v in affinity],
+            "contributions": [float(v) for v in contributions],
+            "local_evidence_vector": [float(v) for v in L],
+        }
+
+    def feature_intervention_effects(
+        self,
+        x: np.ndarray,
+        reference: np.ndarray | None = None,
+    ) -> Dict[str, object]:
+        """Paired feature interventions on the fixed original winner-runner margin."""
+        x = np.asarray(x, dtype=float).copy()
+        record = self.margin_contributions(x)
+        winner = int(record["winner_index"])
+        runner = int(record["runner_index"])
+        base_margin = float(record["margin"])
+        ref = self.raw_feature_mean_ if reference is None else np.asarray(reference, dtype=float)
+        if ref.shape != x.shape:
+            raise ValueError("reference must have the same shape as x")
+
+        effects = np.empty(x.shape[0], dtype=float)
+        intervened_margins = np.empty_like(effects)
+        for k in range(x.shape[0]):
+            xk = x.copy()
+            xk[k] = ref[k]
+            _, _, _, Lk = self.local_evidence(xk)
+            mk = float(Lk[winner] - Lk[runner])
+            intervened_margins[k] = mk
+            effects[k] = base_margin - mk
+
+        return {
+            "winner_index": winner,
+            "runner_index": runner,
+            "winner": record["winner"],
+            "runner_up": record["runner_up"],
+            "base_margin": base_margin,
+            "reference": [float(v) for v in ref],
+            "effects": [float(v) for v in effects],
+            "intervened_margins": [float(v) for v in intervened_margins],
+        }
 
     def representative_path(
         self,
@@ -160,12 +233,9 @@ class FieldOnlyCGEC:
             else:
                 reason = "max_steps"
 
-        class_label = self.classes_[class_index]
-        if hasattr(class_label, "item"):
-            class_label = class_label.item()
         return {
             "class_index": int(class_index),
-            "class_label": class_label,
+            "class_label": self._py(self.classes_[class_index]),
             "entry_node": int(path[0]),
             "path": [int(v) for v in path],
             "evidence_trace": [float(v) for v in evidence_trace],
@@ -183,9 +253,7 @@ class FieldOnlyCGEC:
         support = []
         for pos in support_order:
             node = int(starts[pos])
-            label = self.y_[node]
-            if hasattr(label, "item"):
-                label = label.item()
+            label = self._py(self.y_[node])
             support.append(
                 {
                     "node_index": node,
@@ -203,17 +271,12 @@ class FieldOnlyCGEC:
             str(self.classes_[c]): self.representative_path(starts, affinity, c)
             for c in range(self.n_classes_)
         }
-
-        prediction = self.classes_[winner]
-        runner_label = self.classes_[runner]
-        if hasattr(prediction, "item"):
-            prediction = prediction.item()
-        if hasattr(runner_label, "item"):
-            runner_label = runner_label.item()
+        contribution_record = self.margin_contributions(x)
+        intervention_record = self.feature_intervention_effects(x)
 
         return {
-            "prediction": prediction,
-            "runner_up": runner_label,
+            "prediction": self._py(self.classes_[winner]),
+            "runner_up": self._py(self.classes_[runner]),
             "local_evidence": {
                 str(self.classes_[c]): float(L[c]) for c in range(self.n_classes_)
             },
@@ -221,6 +284,8 @@ class FieldOnlyCGEC:
             "query_neighbour_nodes": [int(v) for v in starts],
             "query_affinities": [float(v) for v in affinity],
             "supporting_neighbors": support,
+            "neighbour_margin_contributions": contribution_record,
+            "feature_interventions": intervention_record,
             "paths": paths,
         }
 
