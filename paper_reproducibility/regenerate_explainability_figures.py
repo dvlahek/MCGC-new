@@ -9,7 +9,9 @@ SCRIPTS = [
     ROOT / "figures" / "fig_spiral_evidence.py",
     ROOT / "figures" / "fig_digits_xai.py",
     ROOT / "figures" / "fig_path_validation.py",
+    ROOT / "figures" / "fig_bc_interventions.py",
     ROOT / "figures" / "fig_predictive_boundary.py",
+    ROOT / "figures" / "fig_spiral_waterfall.py",
 ]
 
 
