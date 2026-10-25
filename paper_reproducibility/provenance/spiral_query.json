@@ -1,0 +1,22 @@
+{
+  "dataset": "noisy spirals (spirals_hard)",
+  "seed": 0,
+  "outer_split": "stratified 70/30",
+  "outer_random_state": 7000,
+  "query_test_index": 130,
+  "true_label": 0,
+  "prediction": 0,
+  "runner_up": 1,
+  "local_evidence": {"0": 0.04876279795726305, "1": -0.04876279795726305},
+  "margin": 0.0975255959145261,
+  "winner_path": [24, 4, 375, 319],
+  "winner_trace": [0.19163004146760299, 0.1903002546918865, 0.2027832095304567, 0.46962602391780317],
+  "winner_threshold": 0.2813229453444021,
+  "winner_termination": "threshold_reached",
+  "runner_path": [380, 423, 279, 28, 450, 202, 392, 259],
+  "runner_trace": [0.07094215207249799, 0.0854774957523099, 0.05137871225225932, 0.142318978666914, 0.16993787832725094, 0.18575634506636746, 0.18799911445371226, 0.18887068995699163],
+  "runner_threshold": 0.28198201096766423,
+  "runner_termination": "no_evidence_increase_above_floor",
+  "top_support_nodes": [380, 287, 231, 24, 4],
+  "top_support_affinities": [0.12402733254406198, 0.11240356073052825, 0.1085757646530858, 0.10511526994232381, 0.10176591978046702]
+}
