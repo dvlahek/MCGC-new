@@ -4,15 +4,17 @@ This directory isolates the **field-only CGEC definition used by the final manus
 
 ## Contents
 
-- `xai/field_only_cgec.py` — paper-locked field-only graph, diffusion, local evidence, prediction, support-example, and deterministic representative-path implementation.
-- `xai/explain_query.py` — small CLI that exports one query explanation as JSON.
-- `figures/fig_spiral_evidence.py` — regenerates the noisy-spiral query-level evidence/path figure from a frozen held-out query.
-- `figures/fig_digits_xai.py` — regenerates the handwritten-digits query explanation with support examples, winner/runner paths, and paired feature interventions.
-- `figures/fig_path_validation.py` — regenerates the path-stability and delete-and-refit validation figure from the final v3.0 summaries.
-- `figures/fig_predictive_boundary.py` — regenerates the final predictive-boundary figure from the final v3.0 predictive summaries.
-- `results/figure_inputs.json` — compact, exact aggregate inputs used to regenerate the predictive and path-validation figures. The full benchmark JSONs remain part of the frozen experiment archive.
-- `provenance/` — frozen query-level provenance for the paper examples.
-- `outputs/` — generated PDF/PNG files (created locally and intentionally not versioned).
+- `xai/field_only_cgec.py` — paper-locked field-only graph, diffusion, local evidence, exact neighbour margin decomposition, paired feature interventions, support-example, and deterministic representative-path implementation.
+- `xai/explain_query.py` — CLI that exports one query explanation as JSON for `digits`, `breast_cancer`, or `spirals_hard`.
+- `figures/fig_spiral_evidence.py` — regenerates the noisy-spiral graph-evidence/path figure from a frozen held-out query.
+- `figures/fig_digits_xai.py` — regenerates the handwritten-digits decision decomposition: class evidence, exact neighbour contributions, paired feature interventions, and winner/runner paths.
+- `figures/fig_path_validation.py` — regenerates the path-stability and delete-and-refit validation figure from final v3.0 aggregate inputs.
+- `figures/fig_bc_interventions.py` — regenerates the breast-cancer feature-intervention/stability figure. Displayed features are selected by the aggregate five-split ranking, not a single split.
+- `figures/fig_predictive_boundary.py` — regenerates the predictive selective-risk figure from final v3.0 aggregate inputs.
+- `figures/fig_spiral_waterfall.py` — supplementary exact neighbour decomposition for the frozen spiral query.
+- `results/figure_inputs.json` — compact exact aggregate inputs used to regenerate the predictive and path-validation figures. The full benchmark JSONs remain part of the frozen experiment archive.
+- `provenance/` — frozen query-level reference records for the manuscript examples.
+- `outputs/` — locally regenerated PDF/PNG files plus runtime provenance and summaries; ignored by Git.
 
 ## Frozen CGEC configuration
 
@@ -24,6 +26,20 @@ This directory isolates the **field-only CGEC definition used by the final manus
 - `delta_floor = 1e-8`
 - numerical safeguard `epsilon = 1e-12`
 
+## Explanation quantities exposed by the public paper API
+
+For a query `q`, `FieldOnlyCGEC.explain_query()` returns:
+
+- prediction and runner-up class,
+- local class evidence `L_c(q)` and the winner-runner margin `M(q)`,
+- affinity-ranked support examples,
+- exact neighbour margin contributions
+
+  `C_j(q) = a_j(q) [D_j^(c+) - D_j^(c-)]`, with `sum_j C_j(q) = M(q)`,
+
+- paired feature intervention effects `I_k(q)` using the training-mean reference and the original winner/runner classes,
+- class-specific entry nodes, representative paths, evidence traces, stopping thresholds, and termination reasons.
+
 ## Regenerate the paper figures
 
 ```bash
@@ -33,22 +49,47 @@ pip install -r paper_reproducibility/requirements.txt
 python paper_reproducibility/regenerate_explainability_figures.py
 ```
 
-Generated files are written to `paper_reproducibility/outputs/`.
+Generated files are written to `paper_reproducibility/outputs/`:
+
+- `fig_spiral_evidence.pdf/png`
+- `fig_digits_real_xai.pdf/png`
+- `fig_path_validation.pdf/png`
+- `fig_bc_interventions.pdf/png`
+- `fig_predictive_boundary.pdf/png`
+- `fig_spiral_waterfall_supplement.pdf/png`
 
 ## Query-level explanation
 
-For the frozen digits example:
+Frozen digits example:
 
 ```bash
 cd paper_reproducibility/xai
-python explain_query.py --dataset digits --seed 0 --query-index 122 --output ../outputs/digits_query_explanation.json
+python explain_query.py \
+  --dataset digits \
+  --seed 0 \
+  --query-index 122 \
+  --output ../outputs/digits_query_explanation.json
 ```
 
-The JSON contains the prediction, runner-up class, local class evidence, winner-runner margin, affinity-ranked support examples, class-specific entry nodes, representative paths, evidence traces, class-specific thresholds, and termination reasons.
+Frozen spiral example:
+
+```bash
+python explain_query.py \
+  --dataset spirals_hard \
+  --seed 0 \
+  --query-index 130 \
+  --output ../outputs/spiral_query_explanation.json
+```
 
 ## Frozen query checks
 
-The scripts contain assertions for the paper examples. The expected digits query is true label 3, predicted class 3, runner-up class 8, with local evidence margin approximately `0.5597656`. The noisy-spiral query is true label 0 and predicted class 0, with `L0 ≈ +0.048763`, `L1 ≈ -0.048763`, and margin `≈ 0.097526`. Its fitted thresholds are class specific: `tau0 ≈ 0.281323` and `tau1 ≈ 0.281982`.
+The expected digits query is true label 3, predicted class 3, runner-up class 8, with local evidence margin approximately `0.5597656`.
+
+The noisy-spiral query is true label 0 and predicted class 0, with `L0 ≈ +0.048763`, `L1 ≈ -0.048763`, and margin `≈ 0.097526`. Its fitted thresholds are class specific: `tau0 ≈ 0.281323` and `tau1 ≈ 0.281982`.
+
+## Breast-cancer intervention figure
+
+The global feature view uses five independent stratified 70/30 splits with `random_state = 7000 + seed`, `seed = 0,...,4`. The 12 displayed features are selected by mean `|I_k(q)|` averaged across **all five splits**. Panel A then shows class-oriented query-level effects for split 0, while Panel B shows the five split-level mean absolute effects for the same aggregate-selected features. This avoids selecting displayed features from one split and then presenting them as a five-split ranking.
 
 ## Scope
 
