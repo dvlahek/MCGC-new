@@ -11,6 +11,7 @@ SCRIPTS = [
     ROOT / "figures" / "fig_path_validation.py",
     ROOT / "figures" / "fig_bc_interventions.py",
     ROOT / "figures" / "fig_predictive_boundary.py",
+    ROOT / "figures" / "fig3_oof_vs_knn.py",
     ROOT / "figures" / "fig_spiral_waterfall.py",
 ]
 
