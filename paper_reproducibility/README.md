@@ -11,8 +11,10 @@ This directory isolates the **field-only CGEC definition used by the final manus
 - `figures/fig_path_validation.py` — regenerates the path-stability and delete-and-refit validation figure from final v3.0 aggregate inputs.
 - `figures/fig_bc_interventions.py` — regenerates the breast-cancer feature-intervention/stability figure. Displayed features are selected by the aggregate five-split ranking, not a single split.
 - `figures/fig_predictive_boundary.py` — regenerates the predictive selective-risk figure from final v3.0 aggregate inputs.
+- `figures/fig3_oof_vs_knn.py` — regenerates the strict out-of-fold label-review comparison against OOF kNN disagreement. Rows are sorted once by ROC-AUC difference and reused in both panels; positive and negative differences use distinct lollipop styling.
 - `figures/fig_spiral_waterfall.py` — supplementary exact neighbour decomposition for the frozen spiral query.
 - `results/figure_inputs.json` — compact exact aggregate inputs used to regenerate the predictive and path-validation figures. The full benchmark JSONs remain part of the frozen experiment archive.
+- `results/fig3_oof_vs_knn_summary.json` — compact frozen dataset-level ROC-AUC and PR-AUC differences used to regenerate Fig. 3 without the full strict-OOF archive.
 - `provenance/` — frozen query-level reference records for the manuscript examples.
 - `outputs/` — locally regenerated PDF/PNG files plus runtime provenance and summaries; ignored by Git.
 
@@ -56,7 +58,16 @@ Generated files are written to `paper_reproducibility/outputs/`:
 - `fig_path_validation.pdf/png`
 - `fig_bc_interventions.pdf/png`
 - `fig_predictive_boundary.pdf/png`
+- `fig3_oof_vs_knn.pdf/png`
 - `fig_spiral_waterfall_supplement.pdf/png`
+
+The default Fig. 3 regeneration uses `results/fig3_oof_vs_knn_summary.json`. If the original v2.1 strict-OOF audit archive is available, the same figure can be recomputed directly from it:
+
+```bash
+python paper_reproducibility/figures/fig3_oof_vs_knn.py \
+  --audit-jsonl /path/to/v21_oof_audit.jsonl \
+  --output-dir paper_reproducibility/outputs
+```
 
 ## Query-level explanation
 
