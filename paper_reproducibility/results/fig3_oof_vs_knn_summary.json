@@ -1,0 +1,18 @@
+{
+  "description": "Dataset-level strict OOF label-review differences: CGEC minus OOF kNN disagreement, averaged over 4 corruption conditions x 5 seeds per dataset.",
+  "sign_test_p": 0.0386,
+  "datasets": [
+    {"dataset": "Hill_Valley_without_noise", "roc_auc": -0.026, "pr_auc": -0.013},
+    {"dataset": "vehicle", "roc_auc": -0.019, "pr_auc": -0.022},
+    {"dataset": "yeast", "roc_auc": 0.001, "pr_auc": 0.008},
+    {"dataset": "ecoli", "roc_auc": 0.002, "pr_auc": 0.015},
+    {"dataset": "wine_quality_red", "roc_auc": 0.004, "pr_auc": 0.026},
+    {"dataset": "mfeat_fourier", "roc_auc": 0.005, "pr_auc": 0.048},
+    {"dataset": "mfeat_karhunen", "roc_auc": 0.009, "pr_auc": 0.068},
+    {"dataset": "bupa", "roc_auc": 0.033, "pr_auc": 0.032},
+    {"dataset": "schizo", "roc_auc": 0.034, "pr_auc": 0.031},
+    {"dataset": "mfeat_zernike", "roc_auc": 0.037, "pr_auc": 0.139},
+    {"dataset": "spectf", "roc_auc": 0.042, "pr_auc": 0.179},
+    {"dataset": "saheart", "roc_auc": 0.043, "pr_auc": 0.079}
+  ]
+}
