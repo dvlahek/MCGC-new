@@ -60,7 +60,7 @@ def main():
 
     outer = fig.add_subplot(gs[0, 0])
     outer.axis("off")
-    outer.set_title("A  Query and local class evidence", loc="left", fontweight="bold")
+    outer.set_title("(a) Query and local class evidence", loc="left", fontweight="bold")
     qax = outer.inset_axes([0.02, 0.12, 0.37, 0.72])
     image_axis(qax, q)
     qax.text(0.5, -0.08, f"query $q$\ntrue label {int(yte[query_index])}", transform=qax.transAxes,
@@ -81,7 +81,7 @@ def main():
              transform=lax.transAxes, ha="right", va="bottom", fontsize=8)
 
     ax = fig.add_subplot(gs[0, 1])
-    ax.set_title(r"B  Exact margin decomposition over neighbours, $M(q)=\sum_j C_j(q)$", loc="left", fontweight="bold")
+    ax.set_title(r"(b) Exact margin decomposition over neighbours, $M(q)=\sum_j C_j(q)$", loc="left", fontweight="bold")
     affinity_order = np.argsort(-affinities)
     cumulative = 0.0
     cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
@@ -104,7 +104,7 @@ def main():
 
     outer = fig.add_subplot(gs[1, 0])
     outer.axis("off")
-    outer.set_title(r"C  Paired feature interventions $I_k(q)$", loc="left", fontweight="bold")
+    outer.set_title(r"(c) Paired feature interventions $I_k(q)$", loc="left", fontweight="bold")
     qax = outer.inset_axes([0.02, 0.13, 0.40, 0.68])
     image_axis(qax, q, "query")
     hax = outer.inset_axes([0.48, 0.13, 0.40, 0.68])
@@ -122,7 +122,7 @@ def main():
 
     ax = fig.add_subplot(gs[1, 1])
     ax.axis("off")
-    ax.set_title("D  Representative evidence paths", loc="left", fontweight="bold")
+    ax.set_title("(d) Representative evidence paths", loc="left", fontweight="bold")
     rows = [(winner, 0.57, "winner"), (runner, 0.08, "runner-up")]
     cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
     for row_idx, (cls, y0, role) in enumerate(rows):
