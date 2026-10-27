@@ -208,12 +208,13 @@ def analyze(records):
 
     overall = {}
     for key in KEYS:
-        acc = [r[key]["accuracy"] for r in rows]
+        acc = [r[key]["accuracy"] for r in rows if r[key]["accuracy"] is not None]
         overall[key] = {
-            "mean_dataset_accuracy": float(np.mean(acc)),
-            "median_dataset_accuracy": float(np.median(acc)),
+            "mean_dataset_accuracy": float(np.mean(acc)) if acc else None,
+            "median_dataset_accuracy": float(np.median(acc)) if acc else None,
             "pooled_correct": int(sum(r[key]["correct"] for r in rows)),
             "pooled_total": int(sum(r[key]["total"] for r in rows)),
+            "n_datasets_with_defined_accuracy": int(len(acc)),
         }
 
     return {
@@ -234,6 +235,10 @@ def analyze(records):
         "dataset_level": rows,
         "overall_equal_dataset_means": overall,
     }
+
+
+def fmt_acc(value):
+    return "NA" if value is None else f"{value:.3f}"
 
 
 def main():
@@ -265,9 +270,9 @@ def main():
                 rr = rec["rival_recovery"]
                 print(
                     f"{ds:24s} {kind:9s} eta={eta:.2f} seed={seed} "
-                    f"ALL={rr['all_corrupt']['accuracy']:.3f} "
-                    f"TOP5={rr['top_5pct_corrupt']['accuracy']:.3f} "
-                    f"TOP10={rr['top_10pct_corrupt']['accuracy']:.3f}",
+                    f"ALL={fmt_acc(rr['all_corrupt']['accuracy'])} "
+                    f"TOP5={fmt_acc(rr['top_5pct_corrupt']['accuracy'])} "
+                    f"TOP10={fmt_acc(rr['top_10pct_corrupt']['accuracy'])}",
                     flush=True,
                 )
 
@@ -294,7 +299,7 @@ def main():
     for key in KEYS:
         r = analysis["overall_equal_dataset_means"][key]
         print(
-            f"{key:18s} mean={r['mean_dataset_accuracy']:.4f} "
+            f"{key:18s} mean={fmt_acc(r['mean_dataset_accuracy'])} "
             f"pooled_n={r['pooled_total']} pooled_correct={r['pooled_correct']}"
         )
     print(f"WROTE {analysis_out}")
