@@ -162,7 +162,6 @@ def main():
                 color=INK2,
             )
 
-        w, l = int((values > 0).sum()), int((values < 0).sum())
         ax.set_title(
             f"{title} {lab} difference",
             loc="center",
@@ -179,13 +178,6 @@ def main():
         for spine in ("top", "right", "left"):
             ax.spines[spine].set_visible(False)
         ax.set_ylim(-0.7, len(order) - 0.3)
-
-    fig.suptitle(
-        f"CGEC better on {w} of {w + l} datasets, sign-test $p$ = {signp(w, l):.4f}",
-        fontsize=9.5,
-        fontweight="bold",
-        y=1.0,
-    )
 
     axes[0].set_yticks(np.arange(len(order)))
     axes[0].set_yticklabels(
