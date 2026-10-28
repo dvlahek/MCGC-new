@@ -1,0 +1,78 @@
+{
+  "artifact": "CGEC final manuscript numerical lock",
+  "configuration": {
+    "K": 12,
+    "alpha": 0.85,
+    "delta_floor": 1e-08,
+    "epsilon": 1e-12,
+    "label_review_folds": 5,
+    "n_D": 40,
+    "path_weights": [1.0, 1.5, 0.35, 0.75],
+    "s_max": 10
+  },
+  "date": "2026-10-28",
+  "feature_intervention_stability": {
+    "aggregate_mean_vs_median_spearman": 0.9483870968,
+    "aggregate_top10_jaccard": 0.8181818,
+    "aggregate_top5_jaccard": 0.6666667,
+    "mean_pairwise_spearman": 0.7244938821,
+    "mean_top5_jaccard": 0.5714285714,
+    "median_pairwise_spearman": 0.726807564
+  },
+  "label_review_table4_12_datasets": {
+    "CGEC": {"p_at_10": 0.6343, "p_at_5": 0.6914, "pr_auc": 0.601, "roc_auc": 0.8178},
+    "CGEC_vs_kNN": {"pr_losses": 2, "pr_sign_p": 0.0386, "pr_wins": 10, "roc_losses": 2, "roc_sign_p": 0.0386, "roc_wins": 10},
+    "Cleanlab_OOF_LR_normalized_margin": {"p_at_10": 0.6356, "p_at_5": 0.6999, "pr_auc": 0.5936, "roc_auc": 0.8292},
+    "LR_confidence": {"p_at_10": 0.6739, "p_at_5": 0.7282, "pr_auc": 0.6224, "roc_auc": 0.8353},
+    "Label_Spreading": {"p_at_10": 0.6187, "p_at_5": 0.6631, "pr_auc": 0.585, "roc_auc": 0.8082},
+    "RF_confidence": {"p_at_10": 0.649, "p_at_5": 0.7032, "pr_auc": 0.6146, "roc_auc": 0.8186},
+    "find_label_issues_native": {"f1_mean": 0.532, "flagged_fraction_mean": 0.329, "precision_mean": 0.444, "recall_mean": 0.715},
+    "kNN_disagreement": {"p_at_10": 0.5907, "p_at_5": 0.617, "pr_auc": 0.5518, "roc_auc": 0.8042}
+  },
+  "manuscript_title": "Chemotactic Graph Evidence for Prediction Explanation and Training-Label Review",
+  "model_scope": "field-only CGEC; stochastic walkers are not part of the manuscript method",
+  "notes": [
+    "Table 4 retains the frozen primary v2.1 CGEC P@5/P@10 values 0.6914/0.6343.",
+    "Rival-class recovery is restricted to eight multiclass datasets because the binary case has only one alternative class.",
+    "Top-budget recovery jointly reflects review prioritization and rival-class quality; pooled corrupted-sample denominators are reported separately.",
+    "The LR rival-margin ranking uses max_{c!=y} p_c - p_y and the same OOF LR probabilities as the normalized-margin Cleanlab comparison."
+  ],
+  "predictive_selective_risk": {
+    "nonlinear_primary_36_units": {
+      "scaled_tuned_knn": {"losses": 9, "mean_eaurc_advantage": 0.0059950064, "p": 0.003933173, "ties": 0, "wins": 27},
+      "scaled_tuned_label_spreading": {"losses": 8, "mean_eaurc_advantage": 0.0031142351, "p": 0.001193243, "ties": 0, "wins": 28},
+      "tuned_random_forest": {"losses": 10, "mean_eaurc_advantage": 0.0054422355, "p": 0.011330984, "ties": 0, "wins": 26},
+      "tuned_rbf_svm": {"losses": 19, "mean_eaurc_advantage": -0.0021808953, "p": 0.8679394, "ties": 0, "wins": 17}
+    },
+    "real_primary_digits_wine_24_units": {
+      "scaled_tuned_knn": {"losses": 16, "mean_eaurc_advantage": -0.0001892987, "p": 0.09314, "ties": 1, "wins": 7},
+      "scaled_tuned_label_spreading": {"losses": 15, "mean_eaurc_advantage": 0.0007179699, "p": 0.1338, "ties": 2, "wins": 7},
+      "tuned_random_forest": {"losses": 23, "mean_eaurc_advantage": -0.0023487664, "p": 2.98e-06, "ties": 0, "wins": 1},
+      "tuned_rbf_svm": {"losses": 20, "mean_eaurc_advantage": -0.000645241, "p": 0.000488, "ties": 1, "wins": 3}
+    }
+  },
+  "representative_path": {
+    "delete_refit_matched_off_path": {"losses": 0, "mean_path_minus_control": 0.04819, "p": 1.91e-06, "ties": 0, "wins": 20},
+    "delete_refit_signed_local_evidence": {"losses": 19, "mean_path_margin_drop": 0.14583, "mean_path_minus_control": -0.06002, "mean_signed_control_margin_drop": 0.20585, "p": 4.01e-05, "ties": 0, "wins": 1},
+    "same_entry_tail": {"mean_advantage": 0.0, "n_units": 14, "ties": 14},
+    "stability_full": {"losses": 1, "mean_advantage": 0.5016268717, "p": 0.0001449585, "ties": 0, "wins": 17},
+    "stability_tail": {"losses": 1, "mean_advantage": 0.4828770891, "p": 0.0002746582, "ties": 1, "wins": 16}
+  },
+  "rival_recovery_table5_8_multiclass": {
+    "CGEC": {"all_corrupted": 0.7613, "n_corr_top10": 11550, "n_corr_top5": 6168, "top10": 0.8687, "top5": 0.8934},
+    "LR_confidence": {"all_corrupted": 0.7546, "n_corr_top10": 11797, "n_corr_top5": 6192, "top10": 0.746, "top5": 0.743},
+    "LR_rival_margin": {"all_corrupted": 0.7545678509998521, "n_corr_top10": 10930, "n_corr_top5": 5865, "top10": 0.8412940142630231, "top5": 0.873487114972123},
+    "Label_Spreading": {"all_corrupted": 0.7417, "n_corr_top10": 11567, "n_corr_top5": 6065, "top10": 0.7352, "top5": 0.7317},
+    "RF_confidence": {"all_corrupted": 0.7709, "n_corr_top10": 12145, "n_corr_top5": 6458, "top10": 0.7581, "top5": 0.7614},
+    "kNN_disagreement": {"all_corrupted": 0.7525, "n_corr_top10": 10963, "n_corr_top5": 5681, "top10": 0.7621, "top5": 0.7499},
+    "primary_top_budget_comparisons": {
+      "CGEC_vs_LR_conf_top10": {"holm_p": 0.046875, "losses": 0, "raw_p": 0.0078125, "ties": 0, "wins": 8},
+      "CGEC_vs_LR_conf_top5": {"holm_p": 0.046875, "losses": 0, "raw_p": 0.0078125, "ties": 0, "wins": 8},
+      "CGEC_vs_LR_rival_margin_top10": {"holm_p": 0.578125, "losses": 2, "raw_p": 0.2890625, "ties": 0, "wins": 6},
+      "CGEC_vs_LR_rival_margin_top5": {"holm_p": 0.578125, "losses": 2, "raw_p": 0.2890625, "ties": 0, "wins": 6},
+      "CGEC_vs_RF_top10": {"holm_p": 0.046875, "losses": 0, "raw_p": 0.0078125, "ties": 0, "wins": 8},
+      "CGEC_vs_RF_top5": {"holm_p": 0.046875, "losses": 0, "raw_p": 0.0078125, "ties": 0, "wins": 8},
+      "family_size": 6
+    }
+  }
+}

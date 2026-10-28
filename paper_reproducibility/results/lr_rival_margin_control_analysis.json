@@ -1,0 +1,27 @@
+{
+  "dataset_level": [
+    {"all_corrupt":{"accuracy":0.8563714902807775,"correct":793,"total":926},"dataset":"ecoli","n_units":20,"top_10pct_corrupt":{"accuracy":0.936986301369863,"correct":342,"total":365},"top_5pct_corrupt":{"accuracy":0.9513513513513514,"correct":176,"total":185}},
+    {"all_corrupt":{"accuracy":0.7141578664757473,"correct":3990,"total":5587},"dataset":"mfeat_fourier","n_units":20,"top_10pct_corrupt":{"accuracy":0.8922919857069934,"correct":1748,"total":1959},"top_5pct_corrupt":{"accuracy":0.9328426862925483,"correct":1014,"total":1087}},
+    {"all_corrupt":{"accuracy":0.840701628781099,"correct":4697,"total":5587},"dataset":"mfeat_karhunen","n_units":20,"top_10pct_corrupt":{"accuracy":0.9651017864561695,"correct":2323,"total":2407},"top_5pct_corrupt":{"accuracy":0.9822667694680031,"correct":1274,"total":1297}},
+    {"all_corrupt":{"accuracy":0.8059781635940576,"correct":4503,"total":5587},"dataset":"mfeat_zernike","n_units":20,"top_10pct_corrupt":{"accuracy":0.9612619808306709,"correct":2407,"total":2504},"top_5pct_corrupt":{"accuracy":0.9918578830495929,"correct":1340,"total":1351}},
+    {"all_corrupt":{"accuracy":0.6780893042575286,"correct":653,"total":963},"dataset":"schizo","n_units":20,"top_10pct_corrupt":{"accuracy":0.6900584795321637,"correct":118,"total":171},"top_5pct_corrupt":{"accuracy":0.7209302325581395,"correct":62,"total":86}},
+    {"all_corrupt":{"accuracy":0.8368972746331237,"correct":1996,"total":2385},"dataset":"vehicle","n_units":20,"top_10pct_corrupt":{"accuracy":0.9114583333333334,"correct":875,"total":960},"top_5pct_corrupt":{"accuracy":0.9647495361781077,"correct":520,"total":539}},
+    {"all_corrupt":{"accuracy":0.6654716558368811,"correct":2970,"total":4463},"dataset":"wine_quality_red","n_units":20,"top_10pct_corrupt":{"accuracy":0.6600458365164248,"correct":864,"total":1309},"top_5pct_corrupt":{"accuracy":0.6838340486409156,"correct":478,"total":699}},
+    {"all_corrupt":{"accuracy":0.6388754241396025,"correct":2636,"total":4126},"dataset":"yeast","n_units":20,"top_10pct_corrupt":{"accuracy":0.7131474103585658,"correct":895,"total":1255},"top_5pct_corrupt":{"accuracy":0.7600644122383253,"correct":472,"total":621}}
+  ],
+  "overall_equal_dataset_means": {
+    "all_corrupt":{"mean_dataset_accuracy":0.7545678509998521,"median_dataset_accuracy":0.7600680150349024,"n_datasets_with_defined_accuracy":8,"pooled_correct":22238,"pooled_total":29624},
+    "top_10pct_corrupt":{"mean_dataset_accuracy":0.8412940142630231,"median_dataset_accuracy":0.9018751595201634,"n_datasets_with_defined_accuracy":8,"pooled_correct":9572,"pooled_total":10930},
+    "top_5pct_corrupt":{"mean_dataset_accuracy":0.873487114972123,"median_dataset_accuracy":0.9420970188219498,"n_datasets_with_defined_accuracy":8,"pooled_correct":5336,"pooled_total":5865}
+  },
+  "protocol": {
+    "audit_folds":5,
+    "conditions":[{"eta":0.1,"noise":"symmetric"},{"eta":0.2,"noise":"symmetric"},{"eta":0.3,"noise":"symmetric"},{"eta":0.2,"noise":"pairflip"}],
+    "datasets":["ecoli","mfeat_fourier","mfeat_karhunen","mfeat_zernike","schizo","vehicle","wine_quality_red","yeast"],
+    "note":"Same frozen v2.1 OOF LR probabilities/protocol. Ranking is monotone-equivalent to Cleanlab normalized-margin suspiciousness when probability adjustment is disabled.",
+    "rival":"argmax_{c!=y} p_c",
+    "score":"max_{c!=y} p_c - p_y",
+    "seeds":[0,1,2,3,4],
+    "version":"v2.1-lr-rival-margin-control"
+  }
+}
