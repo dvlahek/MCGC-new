@@ -277,12 +277,12 @@ def summarize_dataset(runs):
         }
 
     return {
-        "mean_metrics_across_12_seeds": means,
+        "mean_metrics_across_seeds": means,
         "paired_seed_level": paired,
     }
 
 
-def summarize_panel(datasets):
+def summarize_panel(datasets, names):
     dataset_units = {}
     seed_units = {}
 
@@ -291,7 +291,7 @@ def summarize_panel(datasets):
         svals = []
         per_dataset = []
 
-        for name in DATASETS:
+        for name in names:
             runs = datasets[name]["runs"]
             seed_adv = np.asarray(
                 [
@@ -315,14 +315,14 @@ def summarize_panel(datasets):
             "per_dataset": per_dataset,
             "summary": delta_summary(dvals),
             "interpretation": (
-                "primary confirmation unit; each value is the mean over 12 seeds "
-                "for one real dataset"
+                "primary confirmation unit; each value is the mean over the "
+                "requested seeds for one real dataset"
             ),
         }
         seed_units[baseline] = {
             "summary": delta_summary(svals),
             "interpretation": (
-                "descriptive only; 96 dataset-seed runs are not treated as "
+                "descriptive only; dataset-seed runs are not treated as "
                 "independent problem domains"
             ),
         }
@@ -485,7 +485,7 @@ def main():
             "selection_from_results": False,
         },
         "datasets": datasets,
-        "panel_summary": summarize_panel(datasets),
+        "panel_summary": summarize_panel(datasets, names),
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
