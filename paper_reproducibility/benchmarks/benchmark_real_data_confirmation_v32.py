@@ -14,8 +14,9 @@ from sklearn.preprocessing import LabelEncoder
 from mcgc import MultiAgentChemotacticGraphClassifier, reliability_features
 
 
-ROOT = Path(__file__).resolve().parents[1]
-V26_SCRIPT = ROOT / "examples" / "benchmark_corrected_predictive_v26.py"
+PAPER_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+V26_SCRIPT = REPO_ROOT / "examples" / "benchmark_corrected_predictive_v26.py"
 
 
 def _load_module(path: Path, name: str):
@@ -355,17 +356,17 @@ def main():
     ap.add_argument(
         "--cache-dir",
         type=Path,
-        default=ROOT / "source_data" / "pmlb_real_confirmation_v32",
+        default=PAPER_ROOT / "source_data" / "pmlb_real_confirmation_v32",
     )
     ap.add_argument(
         "--checkpoint",
         type=Path,
-        default=ROOT / "results" / "v32_real_data_confirmation_runs.jsonl",
+        default=PAPER_ROOT / "results" / "v32_real_data_confirmation_runs.jsonl",
     )
     ap.add_argument(
         "--output",
         type=Path,
-        default=ROOT / "results" / "v32_real_data_confirmation.json",
+        default=PAPER_ROOT / "results" / "v32_real_data_confirmation.json",
     )
     ap.add_argument(
         "--only",
@@ -437,8 +438,6 @@ def main():
                 flush=True,
             )
 
-    # A smoke/subset run writes a valid subset summary, but only the complete
-    # frozen panel is considered the manuscript confirmation result.
     datasets = {}
     for name in names:
         runs = []
