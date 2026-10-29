@@ -16,6 +16,7 @@ import argparse
 import importlib.util
 import json
 import math
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -29,8 +30,12 @@ V26_PATH = ROOT / "examples" / "benchmark_corrected_predictive_v26.py"
 
 def load_module(path: Path, name: str):
     spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load module spec for {path}")
     module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
+    # Python 3.13 dataclasses inspect sys.modules while the class decorator is
+    # executing, so register dynamically loaded modules before exec_module().
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
