@@ -1,0 +1,32 @@
+{
+  "protocol": {
+    "cgec": "K=12, alpha=0.85, diffusion_steps=40, walkers disabled",
+    "conditions": [["symmetric",0.1],["symmetric",0.2],["symmetric",0.3],["pairflip",0.2]],
+    "corruption_order": "outer training split first; corruption applied only to outer-training labels; then five-fold OOF scoring",
+    "datasets": ["bupa","ecoli"],
+    "oof_preprocessing": "all StandardScaler fits occur inside the corresponding OOF training fold",
+    "outer_split": "70/30 stratified, random_state=20000+seed",
+    "primary_inference_unit": "dataset",
+    "purpose": "strict fold-local preprocessing audit for label review",
+    "seeds": [0],
+    "version": "v3.1-reviewer-oof-scaling"
+  },
+  "sha256_source_json": "5cd5ce474d299ec6e57e7cfcd8a2d40b358f9a797c2955654fe928b0d9e9e43a",
+  "source_file": "v31_strict_oof_scaling_smoke.json",
+  "overall": {
+    "cgec_oof": {"p10":0.588768115942029,"p5":0.6373106060606061,"pr_auc":0.5475631782790238,"roc_auc":0.7820406388531389},
+    "cleanlab_lr_oof": {"p10":0.541893115942029,"p5":0.6070075757575758,"pr_auc":0.5390954827957393,"roc_auc":0.7625429535648149},
+    "knn_disagreement_oof": {"p10":0.5577445652173914,"p5":0.6278409090909091,"pr_auc":0.5260792937616411,"roc_auc":0.7555341310935562},
+    "label_spreading_oof": {"p10":0.5317028985507246,"p5":0.5757575757575758,"pr_auc":0.5219920300702263,"roc_auc":0.7680775865784281},
+    "lr_confidence_oof": {"p10":0.5799365942028984,"p5":0.6070075757575758,"pr_auc":0.5463673310575319,"roc_auc":0.7649403156671171},
+    "rf_confidence_oof": {"p10":0.526947463768116,"p5":0.6098484848484849,"pr_auc":0.5302975670757771,"roc_auc":0.7401527965054422}
+  },
+  "rival_overall": {
+    "cgec_oof": {"all_corrupt":0.9095744680851063,"top_10pct_corrupt":0.9642857142857143,"top_5pct_corrupt":0.9857142857142858},
+    "knn_disagreement_oof": {"all_corrupt":0.9148936170212766,"top_10pct_corrupt":0.9014084507042254,"top_5pct_corrupt":0.8472222222222222},
+    "label_spreading_oof": {"all_corrupt":0.898936170212766,"top_10pct_corrupt":0.8873239436619718,"top_5pct_corrupt":0.8888888888888888},
+    "lr_confidence_oof": {"all_corrupt":0.9308510638297872,"top_10pct_corrupt":0.948051948051948,"top_5pct_corrupt":0.9444444444444444},
+    "lr_rival_margin_oof": {"all_corrupt":0.9308510638297872,"top_10pct_corrupt":0.9785714285714286,"top_5pct_corrupt":0.9861111111111112},
+    "rf_confidence_oof": {"all_corrupt":0.9148936170212766,"top_10pct_corrupt":0.8904109589041096,"top_5pct_corrupt":0.8974358974358974}
+  }
+}
