@@ -4,18 +4,39 @@ Status: **frozen before result inspection**.
 
 Purpose: address the limited breadth of the original real-data predictive comparison without changing the CGEC method, operating configuration, baseline grids, split rule, tuning criterion, or primary selective-risk metric.
 
+## Pre-result implementation correction
+
+The first attempted full run stopped while loading the first dataset because the locally installed `pmlb` package used an older dataset-name registry. No dataset was evaluated and no predictive metric was produced.
+
+Before any result inspection, one additional protocol inconsistency was identified: the initially listed `sonar` dataset has 208 samples and therefore violates the predeclared eligibility rule requiring at least 250 samples. `sonar` is replaced by `dermatology` solely to restore compliance with the frozen eligibility criteria. This replacement is not based on model performance; no model result existed at the time of the correction.
+
+To remove dependence on the locally installed PMLB registry, the executable confirmation loader is pinned to upstream PMLB commit `7c1f4bdc00136dc2e55c87fa6b8ba6e8af6d1a68`.
+
+## Frozen eligibility criteria
+
+A confirmation dataset must satisfy all of the following before evaluation:
+
+- real PMLB classification dataset;
+- 250--2500 usable samples after the standard complete-case loading step;
+- 2--10 classes;
+- at most 100 input features;
+- at least 20 usable samples in every class;
+- disjoint from the 12 PMLB datasets used for training-label review;
+- disjoint from the original predictive pair (`digits`, `wine`);
+- not one of the synthetic nonlinear benchmark families.
+
 ## Frozen datasets
 
-The confirmation panel contains eight real PMLB classification datasets that are disjoint from the 12 PMLB datasets used for training-label review and from the original predictive pair (digits, wine):
+The corrected confirmation panel contains eight real PMLB classification datasets:
 
 1. `credit_approval_australia`
-2. `haberman`
-3. `heart_disease_cleveland`
-4. `horse_colic_outcome`
-5. `ionosphere`
-6. `penguins`
-7. `segmentation`
-8. `sonar`
+2. `dermatology`
+3. `haberman`
+4. `heart_disease_cleveland`
+5. `horse_colic_outcome`
+6. `ionosphere`
+7. `penguins`
+8. `segmentation`
 
 The list is fixed before benchmark results are inspected and must not be changed in response to performance.
 
@@ -62,7 +83,8 @@ Seed-level results (96 dataset-seed runs) are retained and reported descriptivel
 The benchmark records:
 
 - the frozen dataset list,
-- dataset shapes and class counts,
+- the pinned upstream PMLB commit,
+- dataset shapes and class counts after loading,
 - a content fingerprint of each loaded feature/target array,
 - all 12 outer seeds,
 - baseline tuning choices,
