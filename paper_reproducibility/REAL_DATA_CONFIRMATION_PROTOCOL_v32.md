@@ -4,11 +4,13 @@ Status: **frozen before result inspection**.
 
 Purpose: address the limited breadth of the original real-data predictive comparison without changing the CGEC method, operating configuration, baseline grids, split rule, tuning criterion, or primary selective-risk metric.
 
-## Pre-result implementation correction
+## Pre-result implementation and eligibility corrections
 
 The first attempted full run stopped while loading the first dataset because the locally installed `pmlb` package used an older dataset-name registry. No dataset was evaluated and no predictive metric was produced.
 
-Before any result inspection, one additional protocol inconsistency was identified: the initially listed `sonar` dataset has 208 samples and therefore violates the predeclared eligibility rule requiring at least 250 samples. `sonar` is replaced by `dermatology` solely to restore compliance with the frozen eligibility criteria. This replacement is not based on model performance; no model result existed at the time of the correction.
+Before any result inspection, one protocol inconsistency was identified: the initially listed `sonar` dataset has 208 samples and therefore violates the predeclared eligibility rule requiring at least 250 samples. `sonar` was replaced by `dermatology` solely to restore compliance with the frozen eligibility criteria.
+
+A subsequent loading-only attempt stopped before the dataset/seed evaluation loop because `horse_colic_outcome` contains extensive missingness and only 7 complete cases remain under the predeclared complete-case loading rule. It therefore violates the same minimum-sample criterion after loading. Before any CGEC or baseline result had been produced, `horse_colic_outcome` was replaced by `credit_approval_germany`, which satisfies the frozen sample-size, feature-count, class-count, and minimum-class-size criteria. Neither replacement is based on model performance.
 
 To remove dependence on the locally installed PMLB registry, the executable confirmation loader is pinned to upstream PMLB commit `7c1f4bdc00136dc2e55c87fa6b8ba6e8af6d1a68`.
 
@@ -27,13 +29,13 @@ A confirmation dataset must satisfy all of the following before evaluation:
 
 ## Frozen datasets
 
-The corrected confirmation panel contains eight real PMLB classification datasets:
+The final pre-result confirmation panel contains eight real PMLB classification datasets:
 
 1. `credit_approval_australia`
-2. `dermatology`
-3. `haberman`
-4. `heart_disease_cleveland`
-5. `horse_colic_outcome`
+2. `credit_approval_germany`
+3. `dermatology`
+4. `haberman`
+5. `heart_disease_cleveland`
 6. `ionosphere`
 7. `penguins`
 8. `segmentation`
