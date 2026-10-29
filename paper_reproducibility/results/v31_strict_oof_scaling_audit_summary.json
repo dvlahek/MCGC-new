@@ -1,0 +1,49 @@
+{
+  "artifact": "strict OOF preprocessing audit v3.1 compact summary",
+  "source_file": "v31_strict_oof_scaling_audit.json",
+  "source_sha256": "530f9599d945dd895cc2d155b81020e7488a58dcd7369c36c8d362fb7cbc692e",
+  "source_bytes": 1469272,
+  "protocol": {
+    "datasets": ["Hill_Valley_without_noise", "bupa", "ecoli", "mfeat_fourier", "mfeat_karhunen", "mfeat_zernike", "saheart", "schizo", "spectf", "vehicle", "wine_quality_red", "yeast"],
+    "conditions": [["symmetric", 0.1], ["symmetric", 0.2], ["symmetric", 0.3], ["pairflip", 0.2]],
+    "seeds": [0, 1, 2, 3, 4],
+    "outer_split": "70/30 stratified, random_state=20000+seed",
+    "oof_folds": 5,
+    "oof_preprocessing": "all StandardScaler fits occur inside the corresponding OOF training fold",
+    "cgec": "K=12, alpha=0.85, diffusion_steps=40, walkers disabled"
+  },
+  "table4_12_dataset_overall": {
+    "CGEC": {"roc_auc": 0.8178, "pr_auc": 0.6010, "p_at_5": 0.6918, "p_at_10": 0.6340},
+    "RF_confidence": {"roc_auc": 0.8186, "pr_auc": 0.6146, "p_at_5": 0.7032, "p_at_10": 0.6490},
+    "LR_confidence": {"roc_auc": 0.8353, "pr_auc": 0.6220, "p_at_5": 0.7282, "p_at_10": 0.6746},
+    "Cleanlab_OOF_LR_normalized_margin": {"roc_auc": 0.8292, "pr_auc": 0.5932, "p_at_5": 0.7003, "p_at_10": 0.6365},
+    "kNN_disagreement": {"roc_auc": 0.8040, "pr_auc": 0.5522, "p_at_5": 0.6191, "p_at_10": 0.5902},
+    "Label_Spreading": {"roc_auc": 0.8080, "pr_auc": 0.5846, "p_at_5": 0.6643, "p_at_10": 0.6183}
+  },
+  "cgec_vs_knn_dataset_sign_tests": {
+    "roc_auc": {"wins": 10, "losses": 2, "ties": 0, "p": 0.03857421875, "mean_delta": 0.013788112095448621},
+    "pr_auc": {"wins": 10, "losses": 2, "ties": 0, "p": 0.03857421875, "mean_delta": 0.04884709051938593}
+  },
+  "table5_8_multiclass_equal_dataset_means": {
+    "CGEC": {"all_corrupted": 0.7612, "top5": 0.8931, "top10": 0.8686},
+    "RF_confidence": {"all_corrupted": 0.7712, "top5": 0.7617, "top10": 0.7585},
+    "LR_confidence": {"all_corrupted": 0.7544, "top5": 0.7428, "top10": 0.7455},
+    "LR_rival_margin": {"all_corrupted": 0.7544, "top5": 0.8732, "top10": 0.8416},
+    "kNN_disagreement": {"all_corrupted": 0.7531, "top5": 0.7538, "top10": 0.7612},
+    "Label_Spreading": {"all_corrupted": 0.7421, "top5": 0.7308, "top10": 0.7354}
+  },
+  "table5_primary_top_budget_sign_tests_holm": {
+    "CGEC_vs_LR_conf_top5": {"wins": 8, "losses": 0, "ties": 0, "raw_p": 0.0078125, "holm_p": 0.046875},
+    "CGEC_vs_LR_conf_top10": {"wins": 8, "losses": 0, "ties": 0, "raw_p": 0.0078125, "holm_p": 0.046875},
+    "CGEC_vs_RF_top5": {"wins": 8, "losses": 0, "ties": 0, "raw_p": 0.0078125, "holm_p": 0.046875},
+    "CGEC_vs_RF_top10": {"wins": 8, "losses": 0, "ties": 0, "raw_p": 0.0078125, "holm_p": 0.046875},
+    "CGEC_vs_LR_rival_margin_top5": {"wins": 6, "losses": 2, "ties": 0, "raw_p": 0.2890625, "holm_p": 0.578125},
+    "CGEC_vs_LR_rival_margin_top10": {"wins": 6, "losses": 2, "ties": 0, "raw_p": 0.2890625, "holm_p": 0.578125}
+  },
+  "decision": {
+    "oof_scaling": "Use fold-local StandardScaler inside each OOF training fold for LR, kNN, Label Spreading and LR-derived Cleanlab/rival-margin controls.",
+    "manuscript_effect": "Numerical changes are minor and principal conclusions/significance patterns are unchanged.",
+    "table4": "Use v3.1 strict-OOF values for an internally consistent protocol.",
+    "table5": "Use v3.1 8-multiclass equal-dataset means; primary top-budget Holm conclusions are unchanged."
+  }
+}
