@@ -25,6 +25,8 @@ The timing script forces these thread counts before NumPy/scikit-learn are impor
 - OPENBLAS_NUM_THREADS=1
 - NUMEXPR_NUM_THREADS=1
 
+For runtime only, the random-forest implementation is also forced from its benchmark default `n_jobs=-1` to `n_jobs=1`. This changes only parallel execution, not the estimator, grid, random state, selected hyperparameters, predictions, or metrics. The correction was made before timing results were inspected so that all methods are measured under a single-thread execution policy.
+
 Wall-clock time is measured with time.perf_counter(). Hardware/software metadata and thread settings are stored in the output.
 
 ## Runtime quantities
