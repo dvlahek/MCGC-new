@@ -1,53 +1,60 @@
-# MCGC-new
+# Multi-agent Chemotactic Graph Classifier
 
-Experimental research prototype for a **Multi-Agent Chemotactic Graph Classifier (MCGC)**.
+Python implementation of a graph-based classifier with class-conditional evidence fields and optional stochastic graph walks.
 
-MCGC represents labelled data as a k-nearest-neighbour graph with class-specific contrastive evidence fields. Class-conditioned stochastic walkers traverse those fields, producing trajectory diagnostics that can be used both for prediction research and for intrinsically traceable explanations.
+The package includes prediction, query-level diagnostics, training-example explanations, and reliability experiments. It is a research implementation rather than a production classifier.
 
-> Status: experimental v0.6. The repository intentionally retains negative confirmation results. No superiority, novelty-first, or fully-interpretable claim is implied by the code alone.
+**Scope:** This repository contains the MCGC walker-based prototype. It is not the finalized Contrastive Graph-Evidence Classifier (CGEC) implementation associated with the separate manuscript *Graph-Evidence Classification for Intrinsic Explanation and Training-Label Review*.
 
-## Current research position
+## Installation
 
-The project now separates three questions that must not be conflated:
-
-1. **classification** — does walker trajectory evidence improve the graph-field classifier?
-2. **explanation** — can the actual class score and class contrast be traced through exact components and graph paths?
-3. **reliability** — can internal graph/trajectory diagnostics identify predictions that should not be trusted?
-
-The current evidence is mixed by design:
-
-- the original single-split walker gain on spirals did **not** survive a frozen 12-seed confirmation,
-- an uncertainty-gated walker correction did not improve those confirmed predictions,
-- exact score and `why A rather than B` decompositions are implemented and tested,
-- intrinsic reliability is promising, with local graph-field margin currently stronger than walker-specific diagnostics on the meaningful confirmation datasets.
-
-## Implemented components
-
-- mutualised k-NN graph with locally scaled heat-kernel weights,
-- one diffused evidence field per class,
-- contrastive class evidence against the strongest rival,
-- stochastic class-conditioned chemotactic walkers,
-- gradient, geometry, revisit, coherence, agreement and trail-loss diagnostics,
-- optional self-scaled uncertainty gate for walker score terms,
-- exact XAI score decomposition,
-- exact contrastive `why A rather than B` decomposition,
-- deterministic representative evidence trails,
-- supporting-neighbour provenance,
-- intrinsic reliability feature extraction,
-- frozen multi-seed, ablation, selective-walker and risk--coverage benchmarks,
-- GitHub Actions across Python 3.10, 3.11 and 3.12.
-
-## Install and test
+Requires Python 3.10 or later.
 
 ```bash
+git clone https://github.com/dvlahek/MCGC-new.git
+cd MCGC-new
 python -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-pip install -e ".[dev]"
-pytest
+# Windows: .venv\\Scripts\\activate
+# Linux/macOS: source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest
 ```
 
-## Reproduce the benchmark chain
+## Basic use
+
+```python
+from sklearn.datasets import make_moons
+from sklearn.model_selection import train_test_split
+from mcgc import MultiAgentChemotacticGraphClassifier
+
+X, y = make_moons(n_samples=500, noise=0.18, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, stratify=y, test_size=0.3, random_state=0
+)
+
+model = MultiAgentChemotacticGraphClassifier(
+    n_neighbors=12, diffusion_alpha=0.85,
+    diffusion_steps=40, use_walkers=False, random_state=0
+)
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)
+```
+
+The `use_walkers=False` setting runs the field-based classification component. With `use_walkers=True`, class-conditioned walker diagnostics also contribute to the fitted predictor.
+
+## Repository structure
+
+| Path | Contents |
+| --- | --- |
+| `src/mcgc/` | Estimator, explanation utilities, reliability features |
+| `examples/` | Synthetic benchmarks, ablations, selective-prediction experiments |
+| `tests/` | Unit tests for classifier, controls, explanations and reliability |
+| `docs/method.md` | Model formulation and interpretation |
+| `docs/experiments.md` | Evaluation design and results |
+| `docs/reproducibility.md` | Environment, execution and scope |
+| `docs/research-notes/` | Earlier technical reports retained for provenance |
+
+## Experiments
 
 ```bash
 python examples/benchmark_synthetic.py
@@ -57,45 +64,10 @@ python examples/benchmark_selective_v05.py
 python examples/benchmark_reliability_v06.py
 ```
 
-## Confirmed classification result
+The multi-seed comparisons do not establish a general predictive gain from stochastic walkers over the graph-field baseline. See [experimental results](docs/experiments.md) for the reported setting and limitations.
 
-The 12-seed v0.4 confirmation does **not** support a general walker-accuracy gain.
+## Development
 
-| dataset | mean full MCGC - field only | wins | ties | losses |
-|---|---:|---:|---:|---:|
-| circles | +0.00056 | 1 | 11 | 0 |
-| moons | -0.00056 | 0 | 11 | 1 |
-| spirals | -0.00667 | 3 | 2 | 7 |
+Changes should include a test for new prediction or explanation behavior. Re-run `python -m pytest` and the affected benchmark script before comparing numerical results. See [reproducibility](docs/reproducibility.md) for evaluation constraints.
 
-On spirals, full MCGC also trails distance-weighted k-NN by mean accuracy `-0.0950` across the frozen 12 seeds. This negative result is retained as a constraint on future development rather than tuned away.
-
-## XAI status
-
-`explain_mcgc()` decomposes every class score into the same numerical components used by prediction and verifies exact reconstruction. `explain_contrastive_mcgc()` decomposes the exact winner-versus-alternative score difference. Deterministic representative trails are explicitly treated as illustrations of the fitted evidence landscape, not as fabricated causal paths for the stochastic aggregate.
-
-## Reliability status
-
-v0.6 evaluates intrinsic error detection without fitting a secondary risk model or tuning test-set thresholds.
-
-| dataset | pooled errors | local-margin error AUC | trail-disagreement error AUC |
-|---|---:|---:|---:|
-| circles | 6 | 0.9929 | 0.9936 |
-| moons | 42 | **0.9197** | 0.8847 |
-| spirals | 505 | **0.7375** | 0.6083 |
-
-The circles comparison is underpowered because only six errors occurred. On moons and spirals, local graph-field margin is currently the stronger reliability signal. Trail disagreement remains the most promising walker-derived diagnostic but has not yet shown complementary value beyond that baseline.
-
-On spirals, selecting the lowest-risk 50% of predictions by local-margin risk raises retained-set accuracy from `0.7194` to `0.8711` without changing the classifier itself.
-
-## Scientific next step
-
-The next frozen test uses a strict train / calibration / test separation to ask whether walker diagnostics add **incremental reliability information after controlling for local margin**. This is a stronger test than selecting whichever raw diagnostic looks best on the test set.
-
-See:
-
-- [`docs/FORMULATION.md`](docs/FORMULATION.md)
-- [`docs/ABLATION_V02.md`](docs/ABLATION_V02.md)
-- [`docs/CONFIRMATION_V04.md`](docs/CONFIRMATION_V04.md)
-- [`docs/SELECTIVE_V05.md`](docs/SELECTIVE_V05.md)
-- [`docs/RELIABILITY_V06_PROTOCOL.md`](docs/RELIABILITY_V06_PROTOCOL.md)
-- [`docs/RELIABILITY_V06_RESULTS.md`](docs/RELIABILITY_V06_RESULTS.md)
+No license file has been added. Reuse conditions should be clarified by the repository owner before publishing software under an open-source license.
